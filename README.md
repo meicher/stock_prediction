@@ -13,7 +13,7 @@ There are only two ways to 'out-perform' an efficient market ->
 1) Have access to better/more information (we are not this, but more than retail *perhaps*)
 2) Find creative solutions, features (we hope to be this, i.e. use data differently)
 
-[Research](https://github.com/meicher/stock_prediction/tree/main/Research)
+[Research/Ideas](https://github.com/meicher/stock_prediction/tree/main/Research)
 
 ------
 
