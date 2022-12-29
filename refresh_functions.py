@@ -105,7 +105,43 @@ def nasdaqRTAT():
         print('Data up to date:')
         
     print(rtat['date'].max())
+    
+def finraSHORTS():
+    
+    url = 'https://api.finra.org/data/group/otcMarket/name/regShoDaily'
+    headers = {
+        'Content-Type':'application/json',
+        'Accept': 'application/json'
+    }
 
+    records=5000
+    offset=0
+    si = []
+    while records == 5000: #this actually needs to be the return output
+    
+        customFilter = {
+            'limit':5000,
+            'offset':offset,
+            'compareFilters':[
+                {
+                    'compareType':'equal',
+                    'fieldName': 'tradeReportDate',
+                    'fieldValue': str(lastdate)
+                }
+            ]
+        }
+        request = requests.post(url,headers=headers,json=customFilter)
+        df = pd.DataFrame.from_dict(request.json())
+        si.append(df)
+    
+        #update offset by 5000
+        offset += 5000
+    
+        #update records with rows returned
+        records = df.shape[0]
+    
+    si = pd.concat(si)
+    return si
     
 ########################################################################################################
 # PROCESSING / FEATURE CREATION FUNCTIONS #
