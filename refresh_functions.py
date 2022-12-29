@@ -24,7 +24,7 @@ lastdate = datetime.today().date() - pd.tseries.offsets.CustomBusinessDay(1, hol
 ########################################################################################################
 
 #GET SHARADAR EQUITY PRICES (SEP) FOR 2017 THRU PRESENT, STORE FILE
-def sharadarSEP():
+def sharadarSEP(date=lastdate):
     
     sep = pd.read_csv('C:/Users/meich/CareerDocs/projects/stock_prediction/Data/SHARADAR_SEP.csv')
     sep = sep[['ticker','date','closeadj']].copy()
@@ -33,7 +33,7 @@ def sharadarSEP():
     if  (lastdate.date() - pd.to_datetime(sep['date'].max()).date()).days > 0:
         print('New Data---')
         
-        septoday = quandl.get_table('SHARADAR/SEP',date=lastdate,
+        septoday = quandl.get_table('SHARADAR/SEP',date=date,
                          paginate=True)
         sep = sep.append(septoday[['ticker','date','closeadj']])
         sep['date'] = pd.to_datetime(sep['date'])
@@ -70,7 +70,7 @@ def sharadarTICKERS():
 
     return filtered_tickers
 
-def sharadarDAILY():
+def sharadarDAILY(date=lastdate):
     
     daily = pd.read_csv('C:/Users/meich/CareerDocs/projects/stock_prediction/Data/SHARADAR_DAILY.csv')
     
@@ -78,7 +78,7 @@ def sharadarDAILY():
     if  (lastdate.date() - pd.to_datetime(daily['date'].max()).date()).days > 0:
         print('New Data---')
         
-        dailytoday = quandl.get_table('SHARADAR/DAILY',date=lastdate,paginate=True)
+        dailytoday = quandl.get_table('SHARADAR/DAILY',date=date,paginate=True)
         daily = daily.append(dailytoday)
         daily['date'] = pd.to_datetime(daily['date'])
     
@@ -89,15 +89,15 @@ def sharadarDAILY():
     print(daily['date'].max())
     
     
-def nasdaqRTAT():
+def nasdaqRTAT(date=lastdate):
     
     rtat = pd.read_csv('C:/Users/meich/CareerDocs/projects/stock_prediction/Data/NDAQ_RTAT.csv')
     
-    # CHECK FOR NEW DATA, APPEND IF NEW, AND OVERWRITE CSV IF NEW.
+    # CHECK FOR NEW DATA, APPEND IF NEW, AND OVERWRITE CSV IF NEW. (CAN RUN A PREVIOUS DATE IF NEEDED)
     if  (lastdate.date() - pd.to_datetime(rtat['date'].max()).date()).days > 0:
         print('New Data---')
         
-        rtat_today = quandl.get_table('NDAQ/RTAT', date=lastdate,paginate=True)
+        rtat_today = quandl.get_table('NDAQ/RTAT', date=date,paginate=True)
         rtat = rtat.append(rtat_today)
         rtat['date'] = pd.to_datetime(rtat['date'])
     
@@ -178,6 +178,15 @@ def finraSHORTS(date=lastdate):
 #         si_historic[ticker] = np.nan
 # filtered_si = {k:v for (k,v) in si_historic.items() if type(v) is pd.core.frame.DataFrame}
 # final_si  = pd.concat(filtered_si)
+
+# final_si = final_si.reset_index()
+# final_si.rename({
+#     'Date':'date',
+#     'level_0':'ticker'
+# },axis=1,inplace=True)
+# final_si.drop('ShortExemptVolume',axis=1,inplace=True)
+
+# final_si.to_csv('C:/Users/meich/CareerDocs/projects/stock_prediction/Data/FINRA_SI_historic.csv',index=False)
     
   
     
