@@ -200,12 +200,15 @@ def fts_rtat(df):
     # sector/industry market wide metrics (after getting equities bundle)
     
     #TICKER BASED WINDOW METRICS @ 5, 15, 30
-    df['activity_5'] = df.rolling(5).mean()['activity']
-    df['sentiment_5'] = df.rolling(5).mean()['sentiment']
-    df['activity_15'] = df.rolling(15).mean()['activity']
-    df['sentiment_15'] = df.rolling(15).mean()['sentiment']
-    df['activity_30'] = df.rolling(30).mean()['activity']
-    df['sentiment_30'] = df.rolling(30).mean()['sentiment']
+    df['activity_5'] = df.groupby(['ticker']).rolling(5).mean().reset_index()['activity']
+    df['sentiment_5'] = df.groupby(['ticker']).rolling(5).mean().reset_index()['sentiment']
+    
+    df['activity_15'] = df.groupby(['ticker']).rolling(15).mean().reset_index()['activity']
+    df['sentiment_15'] = df.groupby(['ticker']).rolling(15).mean().reset_index()['sentiment']
+    
+    df['activity_30'] = df.groupby(['ticker']).rolling(30).mean().reset_index()['activity']
+    df['sentiment_30'] = df.groupby(['ticker']).rolling(30).mean().reset_index()['sentiment']
+    
     df['activity_recent_ratio'] = df['activity_5'] / df['activity_30']
     df['sentiment_recent_ratio'] = df['sentiment_5'] / df['sentiment_30']
     
