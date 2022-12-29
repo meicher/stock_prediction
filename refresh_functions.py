@@ -5,6 +5,7 @@ import quandl
 import pandas as pd
 import numpy as np
 import pandas_market_calendars as mcal
+import requests
 from datetime import datetime
 
 #store my API key
@@ -106,42 +107,79 @@ def nasdaqRTAT():
         
     print(rtat['date'].max())
     
-def finraSHORTS():
+def finraSHORTS(date=lastdate):
     
-    url = 'https://api.finra.org/data/group/otcMarket/name/regShoDaily'
-    headers = {
-        'Content-Type':'application/json',
-        'Accept': 'application/json'
-    }
-
-    records=5000
-    offset=0
-    si = []
-    while records == 5000: #this actually needs to be the return output
+    new = pd.read_csv('C:/Users/meich/CareerDocs/projects/stock_prediction/Data/FINRA_SI.csv')
     
-        customFilter = {
-            'limit':5000,
-            'offset':offset,
-            'compareFilters':[
-                {
-                    'compareType':'equal',
-                    'fieldName': 'tradeReportDate',
-                    'fieldValue': str(lastdate)
-                }
-            ]
+    #NEST EVERYTHING IN CHECK FOR NEW DATA
+    if  (lastdate.date() - pd.to_datetime(new['date'].max()).date()).days > 0:
+        print('New Data---')
+        
+        url = 'https://api.finra.org/data/group/otcMarket/name/regShoDaily'
+        headers = {
+            'Content-Type':'application/json',
+            'Accept': 'application/json'
         }
-        request = requests.post(url,headers=headers,json=customFilter)
-        df = pd.DataFrame.from_dict(request.json())
-        si.append(df)
+
+        records=5000
+        offset=0
+        si = []
+        while records == 5000: #this actually needs to be the return output
+
+            customFilter = {
+                'limit':5000,
+                'offset':offset,
+                'compareFilters':[
+                    {
+                        'compareType':'equal',
+                        'fieldName': 'tradeReportDate',
+                        'fieldValue': str(date)
+                    }
+                ]
+            }
+            request = requests.post(url,headers=headers,json=customFilter)
+            df = pd.DataFrame.from_dict(request.json())
+            si.append(df)
+
+            #update offset by 5000
+            offset += 5000
+
+            #update records with rows returned
+            records = df.shape[0]
+
+        #rename columns
+        si = pd.concat(si)
+        si.drop(['reportingFacilityCode','marketCode','shortExemptParQuantity'],axis=1,inplace=True)
+        si.rename({
+            'totalParQuantity':'TotalVolume',
+            'shortParQuantity':'ShortVolume',
+            'securitiesInformationProcessorSymbolIdentifier':'ticker',
+            'tradeReportDate':'date'
+            },axis=1,inplace=True)
+
+        #append new data, write full data
+        new = new.append(si)
+        new.to_csv('C:/Users/meich/CareerDocs/projects/stock_prediction/Data/FINRA_SI.csv',index=False)
+        
+    else:
+        print('Data up to date:')
     
-        #update offset by 5000
-        offset += 5000
+    print(new['date'].max())
     
-        #update records with rows returned
-        records = df.shape[0]
+
     
-    si = pd.concat(si)
-    return si
+# ##### IF I EVER NEED TO RUN HISTORIC SI AGAIN -- THIS WILL GET IT FROM NASDAQ DATA LINK
+# si_historic = {}
+# for count,ticker in enumerate(tickers['ticker'].unique()):
+#     print(count,ticker)
+#     try:
+#         si_historic[ticker] = quandl.get(f'FINRA/FNYX_{ticker}') + quandl.get(f'FINRA/FNSQ_{ticker}')
+#     except:
+#         si_historic[ticker] = np.nan
+# filtered_si = {k:v for (k,v) in si_historic.items() if type(v) is pd.core.frame.DataFrame}
+# final_si  = pd.concat(filtered_si)
+    
+  
     
 ########################################################################################################
 # PROCESSING / FEATURE CREATION FUNCTIONS #
