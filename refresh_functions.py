@@ -1,5 +1,6 @@
 import nasdaqdatalink
 import os
+import time
 import json
 import quandl
 import pandas as pd
@@ -18,12 +19,34 @@ quandl.ApiConfig.api_key = key
 nyse = mcal.get_calendar('NYSE')
 lastdate = datetime.today().date() - pd.tseries.offsets.CustomBusinessDay(1, holidays = nyse.holidays().holidays)
 
+# Creating a funtion that will measure execution time
+def timeit(method):
+    # Provide time elapsed for function to complete
+    def timed(*args, **kw):
+        # define time paramters
+        ts = time.time()
+        result = method(*args, **kw)
+        te = time.time()
+        if 'log_time' in kw:
+            name = kw.get('log_name', method.__name__.upper())
+            kw['log_time'][name] = int((te - ts) * 1000)
+        else:
+            print('%r %2.2f mins' %                  
+            (method.__name__, (((te - ts) * 1000))/60000))
+        return result
+    #add this to maintain availability of docstrings w/ .__doc__
+    timed.__doc__ = "{}".format(
+        str(method.__doc__)
+    )
+    return timed
+
 
 ########################################################################################################
 # DATA PULL & REFRESH FUNCTIONS #
 ########################################################################################################
 
 #GET SHARADAR EQUITY PRICES (SEP) FOR 2017 THRU PRESENT, STORE FILE
+@timeit
 def sharadarSEP(date=lastdate):
     
     sep = pd.read_csv('C:/Users/meich/CareerDocs/projects/stock_prediction/Data/SHARADAR_SEP.csv')
@@ -45,6 +68,7 @@ def sharadarSEP(date=lastdate):
     print(sep['date'].max())
 
 #GET FILTERED TICKERS (USED FOR PASSING TO OTHER CALLS & BASIC STOCK CATEGORICAL INFO)
+@timeit
 def sharadarTICKERS():
     
     tickers = quandl.get_table('SHARADAR/TICKERS',paginate=True)
@@ -70,6 +94,7 @@ def sharadarTICKERS():
 
     return filtered_tickers
 
+@timeit
 def sharadarDAILY(date=lastdate):
     
     daily = pd.read_csv('C:/Users/meich/CareerDocs/projects/stock_prediction/Data/SHARADAR_DAILY.csv')
@@ -89,6 +114,7 @@ def sharadarDAILY(date=lastdate):
     print(daily['date'].max())
     
     
+@timeit
 def nasdaqRTAT(date=lastdate):
     
     rtat = pd.read_csv('C:/Users/meich/CareerDocs/projects/stock_prediction/Data/NDAQ_RTAT.csv')
@@ -107,6 +133,7 @@ def nasdaqRTAT(date=lastdate):
         
     print(rtat['date'].max())
     
+@timeit    
 def finraSHORTS(date=lastdate):
     
     new = pd.read_csv('C:/Users/meich/CareerDocs/projects/stock_prediction/Data/FINRA_SI.csv')
@@ -193,21 +220,42 @@ def finraSHORTS(date=lastdate):
 ########################################################################################################
 # PROCESSING / FEATURE CREATION FUNCTIONS #
 ########################################################################################################
+
+def short_features(df):
     
-def fts_rtat(df):
+    df['ShortRatio'] = df['ShortVolume']/df['TotalVolume']
+    return df
+
+
+@timeit    
+def lagged_features(df,ft='closeadj'):
+    
+    #takes a single feature and produces lagged inputs -- default is to calc for price
+    df[f'{ft}_lag1'] = df.groupby(['ticker']).apply(lambda x: x[f'{ft}'].shift(1)).reset_index(level=0,drop=True)
+    df[f'{ft}_lag5'] = df.groupby(['ticker']).apply(lambda x: x[f'{ft}'].shift(5)).reset_index(level=0,drop=True)
+    df[f'{ft}_lag30'] = df.groupby(['ticker']).apply(lambda x: x[f'{ft}'].shift(30)).reset_index(level=0,drop=True)
+    df[f'{ft}_lag90'] = df.groupby(['ticker']).apply(lambda x: x[f'{ft}'].shift(90)).reset_index(level=0,drop=True)
+    df[f'{ft}_lag180'] = df.groupby(['ticker']).apply(lambda x: x[f'{ft}'].shift(180)).reset_index(level=0,drop=True)
+    df[f'{ft}_lag360'] = df.groupby(['ticker']).apply(lambda x: x[f'{ft}'].shift(360)).reset_index(level=0,drop=True)
+    
+    return df
+
+
+@timeit    
+def rtat_features(df):
     # want to get single dataset features calculated here (i.e. rolling metrics, any within data metrics)
     # USE A STANDARDIZED FEATURE CODING (datasource_OGMetric_generatedmetric_timewindow)
     # sector/industry market wide metrics (after getting equities bundle)
-    
+
     #TICKER BASED WINDOW METRICS @ 5, 15, 30
-    df['activity_5'] = df.groupby(['ticker']).rolling(5).mean().reset_index()['activity']
-    df['sentiment_5'] = df.groupby(['ticker']).rolling(5).mean().reset_index()['sentiment']
+    df['activity_5'] = df.groupby(['ticker']).apply(lambda x: x['activity'].rolling(5).mean()).reset_index(level=0,drop=True)
+    df['sentiment_5'] = df.groupby(['ticker']).apply(lambda x: x['sentiment'].rolling(5).mean()).reset_index(level=0,drop=True)
     
-    df['activity_15'] = df.groupby(['ticker']).rolling(15).mean().reset_index()['activity']
-    df['sentiment_15'] = df.groupby(['ticker']).rolling(15).mean().reset_index()['sentiment']
+    df['activity_15'] = df.groupby(['ticker']).apply(lambda x: x['activity'].rolling(15).mean()).reset_index(level=0,drop=True)
+    df['sentiment_15'] = df.groupby(['ticker']).apply(lambda x: x['sentiment'].rolling(15).mean()).reset_index(level=0,drop=True)
     
-    df['activity_30'] = df.groupby(['ticker']).rolling(30).mean().reset_index()['activity']
-    df['sentiment_30'] = df.groupby(['ticker']).rolling(30).mean().reset_index()['sentiment']
+    df['activity_30'] = df.groupby(['ticker']).apply(lambda x: x['activity'].rolling(30).mean()).reset_index(level=0,drop=True)
+    df['sentiment_30'] = df.groupby(['ticker']).apply(lambda x: x['sentiment'].rolling(30).mean()).reset_index(level=0,drop=True)
     
     df['activity_recent_ratio'] = df['activity_5'] / df['activity_30']
     df['sentiment_recent_ratio'] = df['sentiment_5'] / df['sentiment_30']
@@ -224,7 +272,10 @@ def fts_rtat(df):
     df['prod_sent_act_30'] = (df['activity_30']+.00001)*df['sentiment_30']*100
     
     # ADD Z SCORES FOR METRICS BY TICKER?? SIMILAR TO VOLATILITY FOR ACTIVITY/SENTIMENT
-    
+    df.set_index(['ticker','date'],inplace=True)
+    df['activity_Z'] = (combined['activity'] - df.groupby('ticker').mean()['activity'])/df.groupby('ticker').std()['activity']
+    df['sentiment_Z'] = (df['sentiment'] - df.groupby('ticker').mean()['sentiment'])/df.groupby('ticker').std()['sentiment']
+    df.reset_index(inplace=True)
     
     df.replace([np.inf, -np.inf], np.nan, inplace=True)
     
