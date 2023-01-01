@@ -183,6 +183,8 @@ def finraSHORTS(date=lastdate):
             'securitiesInformationProcessorSymbolIdentifier':'ticker',
             'tradeReportDate':'date'
             },axis=1,inplace=True)
+        
+        #sum all SI from different TRFs
         si = si.groupby(['ticker','date']).sum().reset_index()
         
         #append new data, write full data
@@ -222,9 +224,16 @@ def finraSHORTS(date=lastdate):
 # PROCESSING / FEATURE CREATION FUNCTIONS #
 ########################################################################################################
 
+@timeit
 def short_features(df):
     
     df['ShortRatio'] = df['ShortVolume']/df['TotalVolume']
+    df['ShortRatio_5'] = df.groupby(['ticker']).apply(lambda x: x['ShortRatio'].rolling(5).mean()).reset_index(level=0,drop=True)
+    df['ShortRatio_15'] = df.groupby(['ticker']).apply(lambda x: x['ShortRatio'].rolling(15).mean()).reset_index(level=0,drop=True)
+    df['ShortRatio_30'] = df.groupby(['ticker']).apply(lambda x: x['ShortRatio'].rolling(30).mean()).reset_index(level=0,drop=True)
+    
+    #volume drops/spikes
+    
     return df
 
 
@@ -274,7 +283,7 @@ def rtat_features(df):
     
     # ADD Z SCORES FOR METRICS BY TICKER?? SIMILAR TO VOLATILITY FOR ACTIVITY/SENTIMENT
     df.set_index(['ticker','date'],inplace=True)
-    df['activity_Z'] = (combined['activity'] - df.groupby('ticker').mean()['activity'])/df.groupby('ticker').std()['activity']
+    df['activity_Z'] = (df['activity'] - df.groupby('ticker').mean()['activity'])/df.groupby('ticker').std()['activity']
     df['sentiment_Z'] = (df['sentiment'] - df.groupby('ticker').mean()['sentiment'])/df.groupby('ticker').std()['sentiment']
     df.reset_index(inplace=True)
     
