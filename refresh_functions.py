@@ -183,7 +183,8 @@ def finraSHORTS(date=lastdate):
             'securitiesInformationProcessorSymbolIdentifier':'ticker',
             'tradeReportDate':'date'
             },axis=1,inplace=True)
-
+        si = si.groupby(['ticker','date']).sum().reset_index()
+        
         #append new data, write full data
         new = new.append(si)
         new.to_csv('C:/Users/meich/CareerDocs/projects/stock_prediction/Data/FINRA_SI.csv',index=False)
@@ -231,12 +232,12 @@ def short_features(df):
 def lagged_features(df,ft='closeadj'):
     
     #takes a single feature and produces lagged inputs -- default is to calc for price
-    df[f'{ft}_lag1'] = df.groupby(['ticker']).apply(lambda x: x[f'{ft}'].shift(1)).reset_index(level=0,drop=True)
-    df[f'{ft}_lag5'] = df.groupby(['ticker']).apply(lambda x: x[f'{ft}'].shift(5)).reset_index(level=0,drop=True)
-    df[f'{ft}_lag30'] = df.groupby(['ticker']).apply(lambda x: x[f'{ft}'].shift(30)).reset_index(level=0,drop=True)
-    df[f'{ft}_lag90'] = df.groupby(['ticker']).apply(lambda x: x[f'{ft}'].shift(90)).reset_index(level=0,drop=True)
-    df[f'{ft}_lag180'] = df.groupby(['ticker']).apply(lambda x: x[f'{ft}'].shift(180)).reset_index(level=0,drop=True)
-    df[f'{ft}_lag360'] = df.groupby(['ticker']).apply(lambda x: x[f'{ft}'].shift(360)).reset_index(level=0,drop=True)
+    df[f'{ft}_lag1'] = df.groupby(['ticker']).apply(lambda x: x[f'{ft}'].shift(-1)).reset_index(level=0,drop=True)
+    df[f'{ft}_lag5'] = df.groupby(['ticker']).apply(lambda x: x[f'{ft}'].shift(-5)).reset_index(level=0,drop=True)
+    df[f'{ft}_lag30'] = df.groupby(['ticker']).apply(lambda x: x[f'{ft}'].shift(-30)).reset_index(level=0,drop=True)
+    df[f'{ft}_lag90'] = df.groupby(['ticker']).apply(lambda x: x[f'{ft}'].shift(-90)).reset_index(level=0,drop=True)
+    df[f'{ft}_lag180'] = df.groupby(['ticker']).apply(lambda x: x[f'{ft}'].shift(-180)).reset_index(level=0,drop=True)
+    df[f'{ft}_lag360'] = df.groupby(['ticker']).apply(lambda x: x[f'{ft}'].shift(-360)).reset_index(level=0,drop=True)
     
     return df
 
