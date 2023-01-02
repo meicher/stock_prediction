@@ -267,8 +267,8 @@ def rtat_features(df):
     df['activity_30'] = df.groupby(['ticker']).apply(lambda x: x['activity'].rolling(30).mean()).reset_index(level=0,drop=True)
     df['sentiment_30'] = df.groupby(['ticker']).apply(lambda x: x['sentiment'].rolling(30).mean()).reset_index(level=0,drop=True)
     
-    df['activity_recent_ratio'] = df['activity_5'] / df['activity_30']
-    df['sentiment_recent_ratio'] = df['sentiment_5'] / df['sentiment_30']
+#     df['activity_recent_ratio'] = df['activity_5'] / df['activity_30']
+#     df['sentiment_recent_ratio'] = df['sentiment_5'] / df['sentiment_30']
     
 #     #MARKET WIDE (DATE BASED) WINDOW METRICS -- CAN USE TO ADJUST
 #     df = df.join(df.groupby('date').mean()[['sentiment','activity']].rolling(5).mean(),on='date',rsuffix='_5_mkt')
@@ -285,9 +285,28 @@ def rtat_features(df):
     df.set_index(['ticker','date'],inplace=True)
     df['activity_Z'] = (df['activity'] - df.groupby('ticker').mean()['activity'])/df.groupby('ticker').std()['activity']
     df['sentiment_Z'] = (df['sentiment'] - df.groupby('ticker').mean()['sentiment'])/df.groupby('ticker').std()['sentiment']
+    
+    df['activity_5_Z'] = (df['activity_5'] - df.groupby('ticker').mean()['activity_5'])/df.groupby('ticker').std()['activity_5']
+    df['sentiment_5_Z'] = (df['sentiment_5'] - df.groupby('ticker').mean()['sentiment_5'])/df.groupby('ticker').std()['sentiment_5']
+    
+    df['activity_15_Z'] = (df['activity_15'] - df.groupby('ticker').mean()['activity_15'])/df.groupby('ticker').std()['activity_15']
+    df['sentiment_15_Z'] = (df['sentiment_15'] - df.groupby('ticker').mean()['sentiment_15'])/df.groupby('ticker').std()['sentiment_15']
+    
+    df['activity_30_Z'] = (df['activity_30'] - df.groupby('ticker').mean()['activity_30'])/df.groupby('ticker').std()['activity_30']
+    df['sentiment_30_Z'] = (df['sentiment_30'] - df.groupby('ticker').mean()['sentiment_30'])/df.groupby('ticker').std()['sentiment_30']
     df.reset_index(inplace=True)
     
     df.replace([np.inf, -np.inf], np.nan, inplace=True)
     
     return df
-    
+
+
+########################################################################################################
+# PREDICTION / MODELLING FUNCTIONS #
+########################################################################################################
+
+
+def RFmodel():
+    pass
+
+
