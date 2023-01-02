@@ -9,6 +9,10 @@ import pandas_market_calendars as mcal
 import requests
 from datetime import datetime
 
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.model_selection import cross_val_score
+from xgboost import XGBRegressor
+
 #store my API key
 with open('C:/Users/meich/.nasdaq/data_link_apikey.json') as f:
     data=json.load(f)
@@ -306,7 +310,22 @@ def rtat_features(df):
 ########################################################################################################
 
 
-def RFmodel():
-    pass
+#set up data for log model (P(greater price than current))
+# try xgboost -- i know it's a lot faster than RF:  https://xgboost.readthedocs.io/en/stable/tutorials/model.html
+
+#combined[combined['closeadj_pct90'] > 0]
+def regression_setup(df,features,y):
+    
+    #predict on recent dates where no target value... -- need to set to 0 if a stock was delisted
+    # not many nulls, I think these tickers are actually dropped from the data !!!
+    testdata = df[df[y].isnull()][features]
+    
+    data = df[features+[y]].dropna()
+    x = data[features]
+    y = data[y].values.ravel()  
+    
+    return x,y,testdata
+
+
 
 
