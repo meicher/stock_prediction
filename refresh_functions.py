@@ -237,6 +237,9 @@ def short_features(df):
     df['ShortRatio_30'] = df.groupby(['ticker']).apply(lambda x: x['ShortRatio'].rolling(30).mean()).reset_index(level=0,drop=True)
     
     #volume drops/spikes
+    df['TotalVolume_5'] = df.groupby(['ticker']).apply(lambda x: x['TotalVolume'].rolling(5).mean()).reset_index(level=0,drop=True)
+    df['TotalVolume_15'] = df.groupby(['ticker']).apply(lambda x: x['TotalVolume'].rolling(15).mean()).reset_index(level=0,drop=True)
+    df['TotalVolume_30'] = df.groupby(['ticker']).apply(lambda x: x['TotalVolume'].rolling(30).mean()).reset_index(level=0,drop=True)
     
     return df
 
@@ -245,12 +248,20 @@ def short_features(df):
 def lagged_features(df,ft='closeadj'):
     
     #takes a single feature and produces lagged inputs -- default is to calc for price
-    df[f'{ft}_lag1'] = df.groupby(['ticker']).apply(lambda x: x[f'{ft}'].shift(-1)).reset_index(level=0,drop=True)
-    df[f'{ft}_lag5'] = df.groupby(['ticker']).apply(lambda x: x[f'{ft}'].shift(-5)).reset_index(level=0,drop=True)
-    df[f'{ft}_lag30'] = df.groupby(['ticker']).apply(lambda x: x[f'{ft}'].shift(-30)).reset_index(level=0,drop=True)
-    df[f'{ft}_lag90'] = df.groupby(['ticker']).apply(lambda x: x[f'{ft}'].shift(-90)).reset_index(level=0,drop=True)
-    df[f'{ft}_lag180'] = df.groupby(['ticker']).apply(lambda x: x[f'{ft}'].shift(-180)).reset_index(level=0,drop=True)
-    df[f'{ft}_lag360'] = df.groupby(['ticker']).apply(lambda x: x[f'{ft}'].shift(-360)).reset_index(level=0,drop=True)
+    df[f'{ft}_lag1'] = df.groupby(['ticker']).apply(lambda x: x[ft].shift(-1)).reset_index(level=0,drop=True)
+    df[f'{ft}_lag5'] = df.groupby(['ticker']).apply(lambda x: x[ft].shift(-5)).reset_index(level=0,drop=True)
+    df[f'{ft}_lag30'] = df.groupby(['ticker']).apply(lambda x: x[ft].shift(-30)).reset_index(level=0,drop=True)
+    df[f'{ft}_lag90'] = df.groupby(['ticker']).apply(lambda x: x[ft].shift(-90)).reset_index(level=0,drop=True)
+    df[f'{ft}_lag180'] = df.groupby(['ticker']).apply(lambda x: x[ft].shift(-180)).reset_index(level=0,drop=True)
+    df[f'{ft}_lag360'] = df.groupby(['ticker']).apply(lambda x: x[ft].shift(-360)).reset_index(level=0,drop=True)
+    
+    
+    df[f'{ft}_pct1'] = (df[f'{ft}_lag1'] - df[ft]) / df[ft]*100
+    df[f'{ft}_pct5'] = (df[f'{ft}_lag5'] - df[ft]) / df[ft]*100
+    df[f'{ft}_pct30'] = (df[f'{ft}_lag30'] - df[ft]) / df[ft]*100
+    df[f'{ft}_pct90'] = (df[f'{ft}_lag90'] - df[ft]) / df[ft]*100
+    df[f'{ft}_pct180'] = (df[f'{ft}_lag180'] - df[ft]) / df[ft]*100
+    df[f'{ft}_pct360'] = (df[f'{ft}_lag360'] - df[ft]) / df[ft]*100
     
     return df
 
@@ -286,6 +297,7 @@ def rtat_features(df):
     df['prod_sent_act_30'] = (df['activity_30']+.00001)*df['sentiment_30']*100
     
     # ADD Z SCORES FOR METRICS BY TICKER?? SIMILAR TO VOLATILITY FOR ACTIVITY/SENTIMENT
+    # Z HAS LOOKAHEAD DATA - CANT BE USED FOR PREDICTION !!!! (UNLESS WE JUST USE FOR NOTIFICATION, OR HAVE Z BE CALCULATED USING PREV MONTHS)
     df.set_index(['ticker','date'],inplace=True)
     df['activity_Z'] = (df['activity'] - df.groupby('ticker').mean()['activity'])/df.groupby('ticker').std()['activity']
     df['sentiment_Z'] = (df['sentiment'] - df.groupby('ticker').mean()['sentiment'])/df.groupby('ticker').std()['sentiment']
@@ -304,6 +316,9 @@ def rtat_features(df):
     
     return df
 
+
+def standardize_features():
+    pass
 
 ########################################################################################################
 # PREDICTION / MODELLING FUNCTIONS #
