@@ -13,6 +13,9 @@ from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import cross_val_score
 from xgboost import XGBRegressor
 
+from sklearn.model_selection import train_test_split
+
+
 #store my API key
 with open('C:/Users/meich/.nasdaq/data_link_apikey.json') as f:
     data=json.load(f)
