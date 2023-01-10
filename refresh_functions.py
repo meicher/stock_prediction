@@ -243,6 +243,16 @@ def short_features(df):
     
     return df
 
+@timeit
+def fundamentals_features(df):
+    
+    #some feature change measures -- need to be careful about including straight up daily (will just end up predicting ticker)
+    df['evebitda_Z'] = (df['evebitda'] - df.groupby('ticker').mean()['evebitda'])/df.groupby('ticker').std()['evebitda']
+    
+    
+    
+    return df
+
 
 @timeit    
 def lagged_features(df,ft='closeadj'):
@@ -298,19 +308,19 @@ def rtat_features(df):
     
     # ADD Z SCORES FOR METRICS BY TICKER?? SIMILAR TO VOLATILITY FOR ACTIVITY/SENTIMENT
     # Z HAS LOOKAHEAD DATA - CANT BE USED FOR PREDICTION !!!! (UNLESS WE JUST USE FOR NOTIFICATION, OR HAVE Z BE CALCULATED USING PREV MONTHS)
-    df.set_index(['ticker','date'],inplace=True)
-    df['activity_Z'] = (df['activity'] - df.groupby('ticker').mean()['activity'])/df.groupby('ticker').std()['activity']
-    df['sentiment_Z'] = (df['sentiment'] - df.groupby('ticker').mean()['sentiment'])/df.groupby('ticker').std()['sentiment']
+#     df.set_index(['ticker','date'],inplace=True)
+#     df['activity_Z'] = (df['activity'] - df.groupby('ticker').mean()['activity'])/df.groupby('ticker').std()['activity']
+#     df['sentiment_Z'] = (df['sentiment'] - df.groupby('ticker').mean()['sentiment'])/df.groupby('ticker').std()['sentiment']
     
-    df['activity_5_Z'] = (df['activity_5'] - df.groupby('ticker').mean()['activity_5'])/df.groupby('ticker').std()['activity_5']
-    df['sentiment_5_Z'] = (df['sentiment_5'] - df.groupby('ticker').mean()['sentiment_5'])/df.groupby('ticker').std()['sentiment_5']
+#     df['activity_5_Z'] = (df['activity_5'] - df.groupby('ticker').mean()['activity_5'])/df.groupby('ticker').std()['activity_5']
+#     df['sentiment_5_Z'] = (df['sentiment_5'] - df.groupby('ticker').mean()['sentiment_5'])/df.groupby('ticker').std()['sentiment_5']
     
-    df['activity_15_Z'] = (df['activity_15'] - df.groupby('ticker').mean()['activity_15'])/df.groupby('ticker').std()['activity_15']
-    df['sentiment_15_Z'] = (df['sentiment_15'] - df.groupby('ticker').mean()['sentiment_15'])/df.groupby('ticker').std()['sentiment_15']
+#     df['activity_15_Z'] = (df['activity_15'] - df.groupby('ticker').mean()['activity_15'])/df.groupby('ticker').std()['activity_15']
+#     df['sentiment_15_Z'] = (df['sentiment_15'] - df.groupby('ticker').mean()['sentiment_15'])/df.groupby('ticker').std()['sentiment_15']
     
-    df['activity_30_Z'] = (df['activity_30'] - df.groupby('ticker').mean()['activity_30'])/df.groupby('ticker').std()['activity_30']
-    df['sentiment_30_Z'] = (df['sentiment_30'] - df.groupby('ticker').mean()['sentiment_30'])/df.groupby('ticker').std()['sentiment_30']
-    df.reset_index(inplace=True)
+#     df['activity_30_Z'] = (df['activity_30'] - df.groupby('ticker').mean()['activity_30'])/df.groupby('ticker').std()['activity_30']
+#     df['sentiment_30_Z'] = (df['sentiment_30'] - df.groupby('ticker').mean()['sentiment_30'])/df.groupby('ticker').std()['sentiment_30']
+#     df.reset_index(inplace=True)
     
     df.replace([np.inf, -np.inf], np.nan, inplace=True)
     
@@ -320,26 +330,29 @@ def rtat_features(df):
 def standardize_features():
     pass
 
+
+
 ########################################################################################################
 # PREDICTION / MODELLING FUNCTIONS #
 ########################################################################################################
 
-
-#set up data for log model (P(greater price than current))
-# try xgboost -- i know it's a lot faster than RF:  https://xgboost.readthedocs.io/en/stable/tutorials/model.html
-
-#combined[combined['closeadj_pct90'] > 0]
-def regression_setup(df,features,y):
+#SETUP DATA FOR ANY MODELLING (CLASSIFICATION OR REGRESSION)
+def model_setup(df,features,y,testsize=0.2):
     
     #predict on recent dates where no target value... -- need to set to 0 if a stock was delisted
-    # not many nulls, I think these tickers are actually dropped from the data !!!
-    testdata = df[df[y].isnull()][features]
+
+    #DROPS NULLS BASED ON WHERE TARGET IS NULL ONLY
+    df.dropna(subset=[y],inplace=True)
     
-    data = df[features+[y]].dropna()
-    x = data[features]
-    y = data[y].values.ravel()  
+    X_train, X_test, y_train, y_test = train_test_split(
+         df[features], df[y], test_size=testsize)
     
-    return x,y,testdata
+    ##add standardization here (important for multi ticker prediction)
+    # scaler = StandardScaler()
+    # X_train = scaler.fit_transform(X_train)
+    # X_test = scaler.fit_transform(X_test)
+    
+    return X_train, X_test, y_train, y_test
 
 
 
