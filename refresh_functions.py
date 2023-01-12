@@ -304,10 +304,10 @@ def rtat_features(df):
 #     df = df.join(df.groupby('date').mean()[['sentiment','activity']].rolling(30).mean(),on='date',rsuffix='_30_mkt')
     
     #CREATE METRIC THAT COMBINED ACTIVITY + SENTIMENT (ADD # TO ACTIVITY TO PREVENT 0)
-    df['prod_sent_act'] = (df['activity']+.00001)*df['sentiment']*100
-    df['prod_sent_act_5'] = (df['activity_5']+.00001)*df['sentiment_5']*100
-    df['prod_sent_act_15'] = (df['activity_15']+.00001)*df['sentiment_15']*100
-    df['prod_sent_act_30'] = (df['activity_30']+.00001)*df['sentiment_30']*100
+#     df['prod_sent_act'] = (df['activity']+.00001)*df['sentiment']*100
+#     df['prod_sent_act_5'] = (df['activity_5']+.00001)*df['sentiment_5']*100
+#     df['prod_sent_act_15'] = (df['activity_15']+.00001)*df['sentiment_15']*100
+#     df['prod_sent_act_30'] = (df['activity_30']+.00001)*df['sentiment_30']*100
     
     # ADD Z SCORES FOR METRICS BY TICKER?? SIMILAR TO VOLATILITY FOR ACTIVITY/SENTIMENT
     # Z HAS LOOKAHEAD DATA - CANT BE USED FOR PREDICTION !!!! (UNLESS WE JUST USE FOR NOTIFICATION, OR HAVE Z BE CALCULATED USING PREV MONTHS)
