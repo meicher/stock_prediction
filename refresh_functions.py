@@ -234,10 +234,14 @@ def finraSHORTS(date=lastdate):
 @timeit
 def short_features(df):
     
+    #change this to sum of short / total
     df['ShortRatio'] = df['ShortVolume']/df['TotalVolume']
-    df['ShortRatio_5'] = df.groupby(['ticker']).apply(lambda x: x['ShortRatio'].rolling(5).mean()).reset_index(level=0,drop=True)
-    df['ShortRatio_15'] = df.groupby(['ticker']).apply(lambda x: x['ShortRatio'].rolling(15).mean()).reset_index(level=0,drop=True)
-    df['ShortRatio_30'] = df.groupby(['ticker']).apply(lambda x: x['ShortRatio'].rolling(30).mean()).reset_index(level=0,drop=True)
+    df['ShortRatio_5'] = df.groupby(['ticker']).apply(
+            lambda x: x['ShortVolume'].rolling(5).sum()/x['TotalVolume'].rolling(5).sum()).reset_index(level=0,drop=True)
+    df['ShortRatio_15'] = df.groupby(['ticker']).apply(
+            lambda x: x['ShortVolume'].rolling(15).sum()/x['TotalVolume'].rolling(15).sum()).reset_index(level=0,drop=True)
+    df['ShortRatio_30'] = df.groupby(['ticker']).apply(
+            lambda x: x['ShortVolume'].rolling(30).sum()/x['TotalVolume'].rolling(30).sum()).reset_index(level=0,drop=True)
     
     #volume drops/spikes
     df['TotalVolume_5'] = df.groupby(['ticker']).apply(lambda x: x['TotalVolume'].rolling(5).mean()).reset_index(level=0,drop=True)
@@ -251,6 +255,10 @@ def fundamentals_features(df):
     
     #some feature change measures -- need to be careful about including straight up daily (will just end up predicting ticker)
     df['evebitda_Z'] = (df['evebitda'] - df.groupby('ticker').mean()['evebitda'])/df.groupby('ticker').std()['evebitda']
+    
+    df['marketcap_ev_diff'] = (df['marketcap']-df['ev'])/df['marketcap']
+    df['marketcap_ev_diff_pct5'] = df.groupby(['ticker']).apply(
+        lambda x: x['marketcap_ev_diff'].pct_change(5)).reset_index(level=0,drop=True)
     
     
     
@@ -278,6 +286,21 @@ def lagged_features(df,ft='closeadj'):
     
     return df
 
+@timeit
+def pctchange_features(df,fts):
+    
+    #takes df and list(features) and returns the df with pct chng versions added at 1,5,15,30
+    for col in fts:
+        df[f'{col}_pct1'] = df.groupby(['ticker']).apply(
+            lambda x: x[col].pct_change(1)).reset_index(level=0,drop=True)        
+        df[f'{col}_pct5'] = df.groupby(['ticker']).apply(
+            lambda x: x[col].pct_change(5)).reset_index(level=0,drop=True)
+        df[f'{col}_pct15'] = df.groupby(['ticker']).apply(
+            lambda x: x[col].pct_change(15)).reset_index(level=0,drop=True)
+        df[f'{col}_pct30'] = df.groupby(['ticker']).apply(
+            lambda x: x[col].pct_change(30)).reset_index(level=0,drop=True)
+        
+    return df
 
 @timeit    
 def rtat_features(df):
