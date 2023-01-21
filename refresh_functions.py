@@ -202,7 +202,48 @@ def finraSHORTS(date=lastdate):
         print('Data up to date:')
     
     print(new['date'].max())
+
     
+@timeit    
+def sharadarSF2(date=lastdate):
+    
+    #PULLS INSIDER TRADING INFO
+    sf2 = pd.read_csv('C:/Users/meich/CareerDocs/projects/stock_prediction/Data/SHARADAR_SF2.csv')
+    
+    # CHECK FOR NEW DATA, APPEND IF NEW, AND OVERWRITE CSV IF NEW.
+    if  (lastdate.date() - pd.to_datetime(sf2['date'].max()).date()).days > 0:
+        print('New Data---')
+        sf2today = quandl.get_table('SHARADAR/SF2',filingdate='2023-01-20',paginate=True)
+        
+        #PROCESSING
+        #FILTER TO TRUE SALES/PURCHASES + EXCLUDE NON-TRANSACTIONS
+        sf2today = sf2today[(sf2today['transactionvalue']>0) & (sf2today['transactioncode'].isin(['P','S']))].copy()
+        sf2today['transactionvalue'] = (sf2today['transactionshares']/abs(sf2today['transactionshares']))*sf2today['transactionvalue']
+        
+        ownergrouped = sf2today.groupby(['ticker','filingdate','ownername']).sum()
+        ownergrouped.replace([np.inf, -np.inf], np.nan, inplace=True)
+
+        #get mean stake sold by date and ticker -- down the line features can aggregate in diff ways.
+        ownergrouped['pctstakechange'] = (ownergrouped['sharesownedfollowingtransaction']-ownergrouped['sharesownedbeforetransaction'])/ownergrouped['sharesownedbeforetransaction']
+
+        #get count of buys, count of sells
+        ownergrouped['sellcount'] = np.where(ownergrouped['transactionvalue']<0,1,0)
+        ownergrouped['buycount'] = np.where(ownergrouped['transactionvalue']>0,1,0)
+
+        #agg by day
+        ownermoves = ownergrouped.groupby(['ticker','filingdate']).sum()[['sellcount','buycount','transactionvalue']]
+        ownermoves = pd.concat([ownermoves,ownergrouped.groupby(['ticker','filingdate']).mean()['pctstakechange']],axis=1)
+        ownermoves = ownermoves.reset_index()
+        ownermoves.rename({'filingdate':'date'},axis=1,inplace=True)
+
+        sf2 = sf2.append(ownermoves)
+        sf2['date'] = pd.to_datetime(sf2['date'])
+    
+        sf2.to_csv('C:/Users/meich/CareerDocs/projects/stock_prediction/Data/SHARADAR_SF2.csv',index=False)
+    else:
+        print('Data up to date')
+        
+    print(sf2['date'].max())
 
     
 # ##### IF I EVER NEED TO RUN HISTORIC SI AGAIN -- THIS WILL GET IT FROM NASDAQ DATA LINK
