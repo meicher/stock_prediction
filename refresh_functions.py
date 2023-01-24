@@ -213,7 +213,7 @@ def sharadarSF2(date=lastdate):
     # CHECK FOR NEW DATA, APPEND IF NEW, AND OVERWRITE CSV IF NEW.
     if  (lastdate.date() - pd.to_datetime(sf2['date'].max()).date()).days > 0:
         print('New Data---')
-        sf2today = quandl.get_table('SHARADAR/SF2',filingdate='2023-01-20',paginate=True)
+        sf2today = quandl.get_table('SHARADAR/SF2',filingdate=date,paginate=True)
         
         #PROCESSING
         #FILTER TO TRUE SALES/PURCHASES + EXCLUDE NON-TRANSACTIONS
