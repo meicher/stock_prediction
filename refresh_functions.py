@@ -85,7 +85,7 @@ def sharadarTICKERS():
     tickers = tickers[~tickers['industry'].str.contains('Shell Companies',na=False)]
     
     #limit to last price date after 2016
-    tickers = tickers[tickers['lastpricedate'] > '2017-03-01']
+    tickers = tickers[tickers['lastpricedate'] > '2017-01-01']
     
     #limit to nyse / nasdaq for now
     tickers = tickers[tickers['exchange'].isin(['NYSE','NASDAQ'])]
@@ -295,14 +295,23 @@ def short_features(df):
 def fundamentals_features(df):
     
     #some feature change measures -- need to be careful about including straight up daily (will just end up predicting ticker)
-    df['evebitda_Z'] = (df['evebitda'] - df.groupby('ticker').mean()['evebitda'])/df.groupby('ticker').std()['evebitda']
     
-    df['marketcap_ev_diff'] = (df['marketcap']-df['ev'])/df['marketcap']
-    df['marketcap_ev_diff_pct5'] = df.groupby(['ticker']).apply(
-        lambda x: x['marketcap_ev_diff'].pct_change(5)).reset_index(level=0,drop=True)
+    # mktcap - ev = cash - debt (i.e. negative is more debt than cash, positive is more cash than debt)
+    # this wouldn't change until quarterly earnings -- since the price will move mktcap & ev in same way.
+    df['cashdebt'] = (df['marketcap']-df['ev'])/df['marketcap']
     
+    df['pe_sector'] = df.groupby(['sector','date'])['pe'].transform(np.mean)
+    df['cashdebt_sector'] = df.groupby(['sector','date'])['cashdebt'].transform(np.mean)
+    df['ps_sector'] = df.groupby(['sector','date'])['ps'].transform(np.mean)
+    df['pb_sector'] = df.groupby(['sector','date'])['pb'].transform(np.mean)
+    df['evebitda_sector'] = df.groupby(['sector','date'])['evebitda'].transform(np.mean)
     
-    
+    df['pe_industry'] = df.groupby(['industry','date'])['pe'].transform(np.mean)
+    df['cashdebt_industry'] = df.groupby(['industry','date'])['cashdebt'].transform(np.mean)
+    df['ps_industry'] = df.groupby(['industry','date'])['ps'].transform(np.mean)
+    df['pb_industry'] = df.groupby(['industry','date'])['pb'].transform(np.mean)
+    df['evebitda_industry'] = df.groupby(['industry','date'])['evebitda'].transform(np.mean)    
+
     return df
 
 
@@ -362,16 +371,11 @@ def rtat_features(df):
 #     df['activity_recent_ratio'] = df['activity_5'] / df['activity_30']
 #     df['sentiment_recent_ratio'] = df['sentiment_5'] / df['sentiment_30']
     
-#     #MARKET WIDE (DATE BASED) WINDOW METRICS -- CAN USE TO ADJUST
-#     df = df.join(df.groupby('date').mean()[['sentiment','activity']].rolling(5).mean(),on='date',rsuffix='_5_mkt')
-#     df = df.join(df.groupby('date').mean()[['sentiment','activity']].rolling(15).mean(),on='date',rsuffix='_15_mkt')
-#     df = df.join(df.groupby('date').mean()[['sentiment','activity']].rolling(30).mean(),on='date',rsuffix='_30_mkt')
-    
-    #CREATE METRIC THAT COMBINED ACTIVITY + SENTIMENT (ADD # TO ACTIVITY TO PREVENT 0)
-#     df['prod_sent_act'] = (df['activity']+.00001)*df['sentiment']*100
-#     df['prod_sent_act_5'] = (df['activity_5']+.00001)*df['sentiment_5']*100
-#     df['prod_sent_act_15'] = (df['activity_15']+.00001)*df['sentiment_15']*100
-#     df['prod_sent_act_30'] = (df['activity_30']+.00001)*df['sentiment_30']*100
+    # MARKET ADJUSTED 
+    df['sentiment_mkt'] = df['sentiment'] - df.groupby('date')['sentiment'].transform(np.mean)
+    df['sentiment_5_mkt'] = df['sentiment_5'] - df.groupby('date')['sentiment_5'].transform(np.mean)
+    df['sentiment_15_mkt'] = df['sentiment_15'] - df.groupby('date')['sentiment_15'].transform(np.mean)
+    df['sentiment_30_mkt'] = df['sentiment_30'] - df.groupby('date')['sentiment_30'].transform(np.mean)
     
     # ADD Z SCORES FOR METRICS BY TICKER?? SIMILAR TO VOLATILITY FOR ACTIVITY/SENTIMENT
     # Z HAS LOOKAHEAD DATA - CANT BE USED FOR PREDICTION !!!! (UNLESS WE JUST USE FOR NOTIFICATION, OR HAVE Z BE CALCULATED USING PREV MONTHS)
