@@ -318,7 +318,7 @@ def fundamentals_features(df):
 @timeit    
 def lagged_features(df,ft='closeadj'):
     
-    #takes a single feature and produces lagged inputs -- default is to calc for price
+    #takes a single feature and produces lagged targets -- default is to calc for price
     df[f'{ft}_lag1'] = df.groupby(['ticker']).apply(lambda x: x[ft].shift(-1)).reset_index(level=0,drop=True)
     df[f'{ft}_lag5'] = df.groupby(['ticker']).apply(lambda x: x[ft].shift(-5)).reset_index(level=0,drop=True)
     df[f'{ft}_lag30'] = df.groupby(['ticker']).apply(lambda x: x[ft].shift(-30)).reset_index(level=0,drop=True)
@@ -327,12 +327,12 @@ def lagged_features(df,ft='closeadj'):
     df[f'{ft}_lag360'] = df.groupby(['ticker']).apply(lambda x: x[ft].shift(-360)).reset_index(level=0,drop=True)
     
     
-    df[f'{ft}_pct1'] = (df[f'{ft}_lag1'] - df[ft]) / df[ft]*100
-    df[f'{ft}_pct5'] = (df[f'{ft}_lag5'] - df[ft]) / df[ft]*100
-    df[f'{ft}_pct30'] = (df[f'{ft}_lag30'] - df[ft]) / df[ft]*100
-    df[f'{ft}_pct90'] = (df[f'{ft}_lag90'] - df[ft]) / df[ft]*100
-    df[f'{ft}_pct180'] = (df[f'{ft}_lag180'] - df[ft]) / df[ft]*100
-    df[f'{ft}_pct360'] = (df[f'{ft}_lag360'] - df[ft]) / df[ft]*100
+    df[f'{ft}_lagpct1'] = (df[f'{ft}_lag1'] - df[ft]) / df[ft]*100
+    df[f'{ft}_lagpct5'] = (df[f'{ft}_lag5'] - df[ft]) / df[ft]*100
+    df[f'{ft}_lagpct30'] = (df[f'{ft}_lag30'] - df[ft]) / df[ft]*100
+    df[f'{ft}_lagpct90'] = (df[f'{ft}_lag90'] - df[ft]) / df[ft]*100
+    df[f'{ft}_lagpct180'] = (df[f'{ft}_lag180'] - df[ft]) / df[ft]*100
+    df[f'{ft}_lagpct360'] = (df[f'{ft}_lag360'] - df[ft]) / df[ft]*100
     
     return df
 
@@ -340,18 +340,18 @@ def lagged_features(df,ft='closeadj'):
 def pctchange_features(df,fts):
     
     #takes df and list(features) and returns the df with pct chng versions added at 1,5,15,30
-    for col in fts:
-        df[f'{col}_pct1'] = df.groupby(['ticker']).apply(
-            lambda x: x[col].pct_change(1)).reset_index(level=0,drop=True)        
+    for col in fts:    
         df[f'{col}_pct5'] = df.groupby(['ticker']).apply(
             lambda x: x[col].pct_change(5)).reset_index(level=0,drop=True)
         df[f'{col}_pct15'] = df.groupby(['ticker']).apply(
             lambda x: x[col].pct_change(15)).reset_index(level=0,drop=True)
         df[f'{col}_pct30'] = df.groupby(['ticker']).apply(
             lambda x: x[col].pct_change(30)).reset_index(level=0,drop=True)
+        df[f'{col}_pct60'] = df.groupby(['ticker']).apply(
+            lambda x: x[col].pct_change(60)).reset_index(level=0,drop=True)
         
-    return df
-
+        df.replace([np.inf, -np.inf], np.nan, inplace=True)
+        
 @timeit    
 def rtat_features(df):
     # want to get single dataset features calculated here (i.e. rolling metrics, any within data metrics)
@@ -368,38 +368,26 @@ def rtat_features(df):
     df['activity_30'] = df.groupby(['ticker']).apply(lambda x: x['activity'].rolling(30).mean()).reset_index(level=0,drop=True)
     df['sentiment_30'] = df.groupby(['ticker']).apply(lambda x: x['sentiment'].rolling(30).mean()).reset_index(level=0,drop=True)
     
-#     df['activity_recent_ratio'] = df['activity_5'] / df['activity_30']
-#     df['sentiment_recent_ratio'] = df['sentiment_5'] / df['sentiment_30']
-    
     # MARKET ADJUSTED 
     df['sentiment_mkt'] = df['sentiment'] - df.groupby('date')['sentiment'].transform(np.mean)
     df['sentiment_5_mkt'] = df['sentiment_5'] - df.groupby('date')['sentiment_5'].transform(np.mean)
     df['sentiment_15_mkt'] = df['sentiment_15'] - df.groupby('date')['sentiment_15'].transform(np.mean)
     df['sentiment_30_mkt'] = df['sentiment_30'] - df.groupby('date')['sentiment_30'].transform(np.mean)
     
-    # ADD Z SCORES FOR METRICS BY TICKER?? SIMILAR TO VOLATILITY FOR ACTIVITY/SENTIMENT
-    # Z HAS LOOKAHEAD DATA - CANT BE USED FOR PREDICTION !!!! (UNLESS WE JUST USE FOR NOTIFICATION, OR HAVE Z BE CALCULATED USING PREV MONTHS)
-#     df.set_index(['ticker','date'],inplace=True)
-#     df['activity_Z'] = (df['activity'] - df.groupby('ticker').mean()['activity'])/df.groupby('ticker').std()['activity']
-#     df['sentiment_Z'] = (df['sentiment'] - df.groupby('ticker').mean()['sentiment'])/df.groupby('ticker').std()['sentiment']
-    
-#     df['activity_5_Z'] = (df['activity_5'] - df.groupby('ticker').mean()['activity_5'])/df.groupby('ticker').std()['activity_5']
-#     df['sentiment_5_Z'] = (df['sentiment_5'] - df.groupby('ticker').mean()['sentiment_5'])/df.groupby('ticker').std()['sentiment_5']
-    
-#     df['activity_15_Z'] = (df['activity_15'] - df.groupby('ticker').mean()['activity_15'])/df.groupby('ticker').std()['activity_15']
-#     df['sentiment_15_Z'] = (df['sentiment_15'] - df.groupby('ticker').mean()['sentiment_15'])/df.groupby('ticker').std()['sentiment_15']
-    
-#     df['activity_30_Z'] = (df['activity_30'] - df.groupby('ticker').mean()['activity_30'])/df.groupby('ticker').std()['activity_30']
-#     df['sentiment_30_Z'] = (df['sentiment_30'] - df.groupby('ticker').mean()['sentiment_30'])/df.groupby('ticker').std()['sentiment_30']
-#     df.reset_index(inplace=True)
     
     df.replace([np.inf, -np.inf], np.nan, inplace=True)
     
     return df
 
 
-def standardize_features():
+def priceFeatures():
     pass
+
+def InsiderFeatures():
+    #rolling long sum of features...
+    # buycount, sell count, transaction value, pct stake change
+    pass
+
 
 
 
