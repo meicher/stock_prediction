@@ -14,6 +14,7 @@ from sklearn.model_selection import cross_val_score
 from xgboost import XGBRegressor
 
 from sklearn.model_selection import train_test_split
+from sklearn.model_selection import TimeSeriesSplit
 
 
 #store my API key
@@ -388,7 +389,8 @@ def InsiderFeatures():
     # buycount, sell count, transaction value, pct stake change
     pass
 
-
+def InstitutionalFeatures():
+    pass
 
 
 ########################################################################################################
@@ -396,20 +398,30 @@ def InsiderFeatures():
 ########################################################################################################
 
 #SETUP DATA FOR ANY MODELLING (CLASSIFICATION OR REGRESSION)
-def model_setup(df,features,y,testsize=0.2):
+def model_setup(df,features,y,testsize=0.2,gap=False):
     
-    #predict on recent dates where no target value... -- need to set to 0 if a stock was delisted
-
+    #predict on recent dates where no target value... -- need to set to 0 if a stock was delisted?
+    
     #DROPS NULLS BASED ON WHERE TARGET IS NULL ONLY
     df.dropna(subset=[y],inplace=True)
     
-    X_train, X_test, y_train, y_test = train_test_split(
-         df[features], df[y], test_size=testsize)
+    # IF GAP VALUE SET, DO A TIME BASED SPLIT (W/ GAP SIZE OF PREDICTION LAG WINDOW)
+    if gap:
+        tss = TimeSeriesSplit(n_splits = 4,gap=gap) #this is about 20%
+        df.sort_values('date',inplace=True)
+        X = df[features]
+        y = df[y]
+        
+        for train_index, test_index in tss.split(X):
+            X_train, X_test = X.iloc[train_index, :], X.iloc[test_index,:]
+            y_train, y_test = y.iloc[train_index], y.iloc[test_index]
+        
+    else:
+        #normal random cv splitting
+        X_train, X_test, y_train, y_test = train_test_split(
+             df[features], df[y], test_size=testsize)
     
-    ##add standardization here (important for multi ticker prediction)
-    # scaler = StandardScaler()
-    # X_train = scaler.fit_transform(X_train)
-    # X_test = scaler.fit_transform(X_test)
+    
     
     return X_train, X_test, y_train, y_test
 
