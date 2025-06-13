@@ -1,26 +1,49 @@
 import nasdaqdatalink
 import os
-import time
 import json
 import quandl
 import pandas as pd
 import numpy as np
+import seaborn as sns
+import matplotlib.pyplot as plt
+import plotly.express as px
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 import pandas_market_calendars as mcal
-import requests
 from datetime import datetime
+import time
+import requests
+from pathlib import Path
 
+#modelling packages ------
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import cross_val_score
-from xgboost import XGBRegressor
+from xgboost import XGBRegressor,XGBClassifier
+from lightgbm import LGBMRegressor,LGBMClassifier
+import xgboost
+from sklearn.preprocessing import StandardScaler
+from sklearn import preprocessing
+from sklearn.metrics import mean_absolute_error, r2_score, mean_squared_error, make_scorer
 
-from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score
+from sklearn.metrics import log_loss
+
+from yellowbrick.regressor import ResidualsPlot
+from yellowbrick.target import FeatureCorrelation
+from yellowbrick.classifier import ConfusionMatrix
+from yellowbrick.classifier import ROCAUC
+
+from sklearn.feature_selection import RFECV
+import shap
 from sklearn.model_selection import TimeSeriesSplit
+from scipy.stats import pointbiserialr
 
 
 #store my API key
 with open('C:/Users/meich/.nasdaq/data_link_apikey.json') as f:
     data=json.load(f)
     key=data['api_key']
+    avkey = data['alpha_vantage_key']
 quandl.ApiConfig.api_key = key
 
 #Get latest market date
@@ -53,6 +76,48 @@ def timeit(method):
 # DATA PULL & REFRESH FUNCTIONS #
 ########################################################################################################
 
+def fetch_and_clean_from_alphavantage(ticker):
+    url = f'https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol={ticker}&apikey={avkey}&outputsize=full'
+    r = requests.get(url)
+    raw_data = r.json()
+
+    df = pd.DataFrame(raw_data['Time Series (Daily)']).T.reset_index()
+    df.columns = ['date', 'open', 'high', 'low', 'Close', 'volume']
+    df = df[['date', 'Close', 'volume']]
+    df['date'] = pd.to_datetime(df['date'])
+    df['Close'] = pd.to_numeric(df['Close'])
+    df['volume'] = pd.to_numeric(df['volume'])
+    
+    return df
+
+
+@timeit
+def AlphaVantagePrices(date=lastdate,ticker='SPY'):
+
+    file_path = Path(f'C:/Users/meich/CareerDocs/projects/stock_prediction/Data/{ticker}_HISTORY.csv')
+    
+    # CHECK FOR NEW DATA, APPEND IF NEW, AND OVERWRITE CSV IF NEW.
+    if not file_path.exists():
+        print('File not found. Downloading full data...')
+        spy = fetch_and_clean_from_alphavantage(ticker)
+        spy.to_csv(file_path, index=False)
+        return spy
+
+    spy = pd.read_csv(file_path)
+    spy['date'] = pd.to_datetime(spy['date'])
+
+    if (lastdate.date() - spy['date'].max().date()).days > 0:
+        print('New Data---')
+        spy = fetch_and_clean_from_alphavantage(ticker)
+        spy.to_csv(file_path, index=False)
+    else:
+        print('Data up to date')
+
+    return spy
+        
+        
+
+
 #GET SHARADAR EQUITY PRICES (SEP) FOR 2017 THRU PRESENT, STORE FILE
 @timeit
 def sharadarSEP(date=lastdate):
@@ -66,7 +131,7 @@ def sharadarSEP(date=lastdate):
         
         septoday = quandl.get_table('SHARADAR/SEP',date=date,
                          paginate=True)
-        sep = sep.append(septoday[['ticker','date','closeadj']])
+        sep = pd.concat([sep,septoday[['ticker','date','closeadj']]])
         sep['date'] = pd.to_datetime(sep['date'])
     
         sep.to_csv('C:/Users/meich/CareerDocs/projects/stock_prediction/Data/SHARADAR_SEP.csv',index=False)
@@ -92,7 +157,7 @@ def sharadarTICKERS():
     tickers = tickers[tickers['exchange'].isin(['NYSE','NASDAQ'])]
     
     #limit to real tickers w/o period
-    tickers = tickers[~tickers['ticker'].str.contains('\.')]
+    #tickers = tickers[~tickers['ticker'].str.contains('\.')]
     
     #tickers are duplicated by table for some reason -- get the most recent from SEP
     tickers = tickers[tickers['table'] == 'SEP']
@@ -112,7 +177,7 @@ def sharadarDAILY(date=lastdate):
         print('New Data---')
         
         dailytoday = quandl.get_table('SHARADAR/DAILY',date=date,paginate=True)
-        daily = daily.append(dailytoday)
+        daily = pd.concat([daily,dailytoday])
         daily['date'] = pd.to_datetime(daily['date'])
     
         daily.to_csv('C:/Users/meich/CareerDocs/projects/stock_prediction/Data/SHARADAR_DAILY.csv',index=False)
@@ -132,7 +197,7 @@ def nasdaqRTAT(date=lastdate):
         print('New Data---')
         
         rtat_today = quandl.get_table('NDAQ/RTAT', date=date,paginate=True)
-        rtat = rtat.append(rtat_today)
+        rtat = pd.concat([rtat,rtat_today])
         rtat['date'] = pd.to_datetime(rtat['date'])
     
         rtat.to_csv('C:/Users/meich/CareerDocs/projects/stock_prediction/Data/NDAQ_RTAT.csv',index=False)
@@ -174,7 +239,7 @@ def finraSHORTS(date=lastdate):
             }
             request = requests.post(url,headers=headers,json=customFilter)
             df = pd.DataFrame.from_dict(request.json())
-            si.append(df)
+            si = pd.concat([si,df])
 
             #update offset by 5000
             offset += 5000
@@ -196,7 +261,7 @@ def finraSHORTS(date=lastdate):
         si = si.groupby(['ticker','date']).sum().reset_index()
         
         #append new data, write full data
-        new = new.append(si)
+        new = pd.concat([new,si])
         new.to_csv('C:/Users/meich/CareerDocs/projects/stock_prediction/Data/FINRA_SI.csv',index=False)
         
     else:
@@ -237,7 +302,7 @@ def sharadarSF2(date=lastdate):
         ownermoves = ownermoves.reset_index()
         ownermoves.rename({'filingdate':'date'},axis=1,inplace=True)
 
-        sf2 = sf2.append(ownermoves)
+        sf2 = pd.concat([sf2,ownermoves])
         sf2['date'] = pd.to_datetime(sf2['date'])
     
         sf2.to_csv('C:/Users/meich/CareerDocs/projects/stock_prediction/Data/SHARADAR_SF2.csv',index=False)
@@ -426,5 +491,201 @@ def model_setup(df,features,y,testsize=0.2,gap=False):
     return X_train, X_test, y_train, y_test
 
 
+########################################################################################################
+# PUT CALL PROCESSING FUNCTIONS / FEATURE ENGINEERING
+########################################################################################################
+
+#PCT CHANGE FEATURES
+def pct_change_no_ticker(df,fts,date=None,time=[2,3,5,10]):
+    
+    if date:
+        df.sort_values(date,inplace=True)
+        
+    #takes df and list(features) and returns the df with pct chng versions
+    for col in fts:
+        for p in time:
+            df[f'{col}_pct{p}'] = df[f'{col}'].pct_change(p,fill_method=None)
+    
+    df.replace([np.inf, -np.inf], np.nan, inplace=True)
+
+def lag_predictor(df,y,date=None,time=[1,2,3,4]):
+
+    if date:
+        df.sort_values(date,inplace=True,ascending=False)
+
+    #CREATE PCT CHANGE FORWARD LOOKING 
+    for mo in time:
+        df[f'{y}_lag{mo}'] = (df[y].shift(mo) - df[y]) / df[y]
+
+    #df[f'{y}_lag1_log'] = np.log(df[y]).diff()
+        
+        
+#MOVING AVGS
+def moving_avgs(df,fts,date=None,time=[2,3,5,10]):
+
+    if date:
+        df.sort_values(date,inplace=True)
+    
+    #takes df and list(features) and returns the df with pct chng versions
+    for col in fts:
+        for p in time:
+            df[f'{col}_MA{p}'] = df[f'{col}'].rolling(p).mean()
+
+def quantile_inds(df,cols,quantiles=[.05,.95]):
+    
+    #create variables that indicate lower/higher quantiles
+    for col in cols:
+        df[f'{col}_lo'] = np.where(df[col]<df[col].quantile(quantiles[0]),1,0)
+        df[f'{col}_hi'] = np.where(df[col]>df[col].quantile(quantiles[1]),1,0)
 
 
+def conditional_avg(df, target_col, condition_str, metric=np.mean):
+    """
+    Calculates a metric (mean, median, etc.) of a target column based on a condition.
+
+    Parameters:
+    - df: pandas DataFrame
+    - target_col: name of the column to evaluate (string)
+    - condition_str: condition to filter the DataFrame (string, e.g., 'X == 1')
+    - metric: function to apply (e.g., np.mean, np.nanmedian)
+
+    Returns:
+    - Metric result of target_col for rows where condition is True
+    """
+    filtered_df = df.query(condition_str)
+    
+    if filtered_df.empty:
+        print("No rows match the condition.")
+        return None
+    
+    conditional_value = metric(filtered_df[target_col])
+    overall_value = metric(df[target_col])
+    event_pct = round(filtered_df[target_col].count() / df[target_col].count() * 100, 2)
+
+    print(f'event {metric.__name__}: {conditional_value*100:.2f}%')
+    print(f'% of total events: {event_pct}%')
+    print(f'all rows {metric.__name__}: {overall_value*100:.2f}%')
+
+
+def future_max_gain_drop(df, col, windows):
+    
+    prices = df[col].to_numpy()
+    n = len(prices)
+
+    for window in windows:
+        # Preallocate array with NaNs
+        max_gains = np.full(n, np.nan)
+        max_drops = np.full(n, np.nan)
+
+        # Only iterate where a full window exists
+        for i in range(n - window):
+            future = prices[i+1:i+1+window]
+            current = prices[i]
+
+            max_gains[i] = (np.max(future) - current) / current
+            max_drops[i] = (np.min(future) - current) / current
+
+        # Add the columns to the DataFrame
+        df[f'max_{window}_gain'] = max_gains
+        df[f'max_{window}_drop'] = max_drops
+        df[f'max_{window}_diff'] = max_gains - max_drops
+
+    return df
+########################################################################################################
+# PUT CALL PREDICTION / SCORING FUNCTIONS
+########################################################################################################
+
+# MAE Scores
+def xgb_cross_val_mae(features, target, df, cv=5, xgb_params=None):
+    """
+    Performs cross-validation using XGBoost and returns MAE scores.
+
+    Parameters:
+    - features: list of feature column names
+    - target: name of the target column
+    - df: pandas DataFrame containing the data
+    - cv: number of cross-validation folds (default: 5)
+    - xgb_params: dictionary of parameters for XGBRegressor (optional)
+
+    Returns:
+    - mean MAE and individual MAE scores for each fold
+    """
+    if xgb_params is None:
+        xgb_params = {
+            "n_estimators": 1000,
+            "max_depth": 3,
+            "learning_rate": 0.1,
+            "random_state": 42,
+            "reg_alpha":1,
+            "reg_lambda":1,
+        }
+        
+    df = df.dropna(subset=[target] + features)
+    X = df[features]
+    y = df[target]
+    
+    random_y = df[target].sample(frac=1, random_state=42)
+
+    model = XGBRegressor(**xgb_params)
+    mae_scorer = make_scorer(mean_absolute_error, greater_is_better=False)
+
+    # Get negative MAE (sklearn convention) and convert to positive
+    scores = cross_val_score(model, X, y, cv=cv, scoring=mae_scorer)
+    mae_scores = -scores
+    
+    # Get random baseline
+    rand_scores = cross_val_score(model, X, random_y, cv=cv, scoring=mae_scorer)
+    rand_mae_scores = -rand_scores
+    
+    #print(f"MAE scores per fold: {mae_scores}")
+    r2_scores = cross_val_score(model, X, y, cv=cv, scoring='r2')
+    print(f"R2: {r2_scores.mean():.4f}")
+    print(f"Mean MAE: {mae_scores.mean():.4f}")
+    print(f"Mean Random MAE: {rand_mae_scores.mean():.4f}")
+
+
+def lgb_cross_val_mae(features, target, df, cv=5, lgb_params=None):
+    """
+    Performs cross-validation using LightGBM and returns MAE and R² scores.
+    USES GPU DEFAULT
+
+    Parameters:
+    - features: list of feature column names
+    - target: name of the target column
+    - df: pandas DataFrame containing the data
+    - cv: number of cross-validation folds (default: 5)
+    - lgb_params: dictionary of parameters for LGBMRegressor (optional)
+
+    Returns:
+    - Tuple: (mean MAE, mean random MAE, mean R², mean random R²)
+    """
+    if lgb_params is None:
+        lgb_params = {
+            "n_estimators": 1000,
+            "max_depth": 6,
+            "learning_rate": 0.05,
+            "random_state": 42,
+            "device": "gpu",
+            "verbosity":0
+        }
+
+    df = df.dropna(subset=[target] + features)
+    X = df[features]
+    y = df[target]
+    random_y = y.sample(frac=1, random_state=42).reset_index(drop=True)
+
+    model = LGBMRegressor(**lgb_params)
+
+    # MAE
+    mae_scorer = make_scorer(mean_absolute_error, greater_is_better=False)
+    mae_scores = -cross_val_score(model, X, y, cv=cv, scoring=mae_scorer)
+    rand_mae_scores = -cross_val_score(model, X, random_y, cv=cv, scoring=mae_scorer)
+
+    # R²
+    r2_scores = cross_val_score(model, X, y, cv=cv, scoring='r2')
+    rand_r2_scores = cross_val_score(model, X, random_y, cv=cv, scoring='r2')
+
+    print(f"Mean MAE:        {mae_scores.mean():.4f}")
+    print(f"Mean Random MAE: {rand_mae_scores.mean():.4f}")
+    print(f"Mean R²:         {r2_scores.mean():.4f}")
+    print(f"Mean Random R²:  {rand_r2_scores.mean():.4f}")
