@@ -66,7 +66,8 @@ st.markdown(":rainbow[Is it VIX calls time?]")
 #add guage of buying opportunity as 0-sum(buying indicators) for most recent day
 fig = go.Figure(go.Indicator(
     mode = "gauge+number",
-    value = value,
+    value = vix[['close_5_50_diff_neg6','close_5_50_diff_ema_norm_neg10',
+                         'close_5_50_diff_ema_norm_neg20','close_5_50_diff_ema_norm_neg30']][vix['date']==yesterday_market_date].sum().sum(),
     title = {'text': "Daily VIX Opportunity"},
     gauge = {
         'axis': {'range': [0, 4]},
@@ -75,13 +76,7 @@ fig = go.Figure(go.Indicator(
             {'range': [0, 1], 'color': "lightred"},
             {'range': [1, 2], 'color': "lightyellow"},
             {'range': [2, 4], 'color': "lightgreen"}
-        ],
-        'threshold': {
-            'line': {'color': "blue", 'width': 4},
-            'thickness': 0.75,
-            'value': vix[['close_5_50_diff_neg6','close_5_50_diff_ema_norm_neg10',
-                         'close_5_50_diff_ema_norm_neg20','close_5_50_diff_ema_norm_neg30']][vix['date']==yesterday_market_date].sum().sum()
-        }
+        ]
     }
 ))
 st.plotly_chart(fig)
