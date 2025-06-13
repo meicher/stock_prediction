@@ -15,53 +15,83 @@ vix['date'] = pd.to_datetime(vix['date'])
 
 #### Feature Engineering####################################################
 #Alternative to close lag -- better metric for options windows.
-vix = future_max_gain_drop(vix,'close',windows=[5,10,15])
+def feature_eng(vix=vix):
+    vix = future_max_gain_drop(vix,'close',windows=[5,10,15])
+    
+    lag_predictor(vix,'close',time=[3,5,10,15,20,30,50],date='date')
+    moving_avgs(vix,['close'],date='date',time=[5,10,15,20,25,50,100])
+    
+    ## ema <-4 (similar to a 5_25 diff sma, doesn't hold on to past values as hard
+    vix['close_EMA50'] = vix['close'].ewm(span=50).mean()
+    vix['close_EMA5'] = vix['close'].ewm(span=5).mean()
+    vix['close_5_50_diff_ema'] = vix['close_EMA5'] - vix['close_EMA50']
+    vix['close_5_50_diff_ema_norm'] = vix['close_5_50_diff_ema']/vix['close_5_50_diff_ema'].rolling(5).std() #not entirely sure how this works
+    
+    vix['close_5_20_diff'] = vix['close_MA5'] - vix['close_MA20']
+    vix['close_1_50_diff'] = vix['close'] - vix['close_MA50']
+    vix['close_1_5_diff'] = vix['close'] - vix['close_MA5']
+    vix['close_5_50_diff'] = vix['close_MA5']-vix['close_MA50']
+    vix['close_100_50_diff'] = vix['close_MA100']-vix['close_MA50']
+    vix['close_5_25_diff'] = vix['close_MA5']-vix['close_MA25']
+    
+    #quantiles are inherently forward looking...
+    quantile_inds(vix,cols=['close_5_20_diff','close_5_50_diff','close_100_50_diff','close_5_50_diff','close_1_5_diff','close_5_50_diff_ema',
+                           'close_5_50_diff_ema_norm'],quantiles=[.05,.95])
+    
+    #buy indicator vars
+    vix['close_5_50_diff_neg6'] = np.where(vix['close_5_50_diff']<=-6,1,0)
+    vix['close_5_50_diff_neg4'] = np.where(vix['close_5_50_diff']<=-4,1,0)
+    vix['close_5_50_diff_neg8'] = np.where(vix['close_5_50_diff']<=-8,1,0)
+    vix['close_5_50_diff_ema_neg4'] = np.where(vix['close_5_50_diff_ema']<=-4,1,0)
+    vix['close_5_50_diff_ema_norm_neg30'] = np.where(vix['close_5_50_diff_ema_norm']<=-30,1,0)
+    vix['close_5_50_diff_ema_norm_neg20'] = np.where(vix['close_5_50_diff_ema_norm']<=-20,1,0)
+    vix['close_5_50_diff_ema_norm_neg10'] = np.where(vix['close_5_50_diff_ema_norm']<=-10,1,0)
+    
+    #trigger + under mean vix (could use 75th percentile vix at 23 as well)
+    vix['buy_ind6'] = np.where((vix['close_5_50_diff_neg6'])  & (vix['close']<20),1,0)
+    vix['buy_ind4'] = np.where((vix['close_5_50_diff_neg4'])  & (vix['close']<20),1,0)
+    vix['buy_ind_ema10'] = np.where((vix['close_5_50_diff_ema_norm_neg10'])  & (vix['close']<20),1,0)
+    vix['buy_ind_ema20'] = np.where((vix['close_5_50_diff_ema_norm_neg20'])  & (vix['close']<20),1,0)
+    
+    # ##NULL THE PANDEMIC ROWS
+    # mask = (vix['date'] >= '2020-02-01') & (vix['date'] <= '2020-12-31')
+    # vix.loc[mask, :] = np.nan
 
-lag_predictor(vix,'close',time=[3,5,10,15,20,30,50],date='date')
-moving_avgs(vix,['close'],date='date',time=[5,10,15,20,25,50,100])
-
-## ema <-4 (similar to a 5_25 diff sma, doesn't hold on to past values as hard
-vix['close_EMA50'] = vix['close'].ewm(span=50).mean()
-vix['close_EMA5'] = vix['close'].ewm(span=5).mean()
-vix['close_5_50_diff_ema'] = vix['close_EMA5'] - vix['close_EMA50']
-vix['close_5_50_diff_ema_norm'] = vix['close_5_50_diff_ema']/vix['close_5_50_diff_ema'].rolling(5).std() #not entirely sure how this works
-
-vix['close_5_20_diff'] = vix['close_MA5'] - vix['close_MA20']
-vix['close_1_50_diff'] = vix['close'] - vix['close_MA50']
-vix['close_1_5_diff'] = vix['close'] - vix['close_MA5']
-vix['close_5_50_diff'] = vix['close_MA5']-vix['close_MA50']
-vix['close_100_50_diff'] = vix['close_MA100']-vix['close_MA50']
-vix['close_5_25_diff'] = vix['close_MA5']-vix['close_MA25']
-
-#quantiles are inherently forward looking...
-quantile_inds(vix,cols=['close_5_20_diff','close_5_50_diff','close_100_50_diff','close_5_50_diff','close_1_5_diff','close_5_50_diff_ema',
-                       'close_5_50_diff_ema_norm'],quantiles=[.05,.95])
-
-#buy indicator vars
-vix['close_5_50_diff_neg6'] = np.where(vix['close_5_50_diff']<=-6,1,0)
-vix['close_5_50_diff_neg4'] = np.where(vix['close_5_50_diff']<=-4,1,0)
-vix['close_5_50_diff_neg8'] = np.where(vix['close_5_50_diff']<=-8,1,0)
-vix['close_5_50_diff_ema_neg4'] = np.where(vix['close_5_50_diff_ema']<=-4,1,0)
-vix['close_5_50_diff_ema_norm_neg30'] = np.where(vix['close_5_50_diff_ema_norm']<=-30,1,0)
-vix['close_5_50_diff_ema_norm_neg20'] = np.where(vix['close_5_50_diff_ema_norm']<=-20,1,0)
-vix['close_5_50_diff_ema_norm_neg10'] = np.where(vix['close_5_50_diff_ema_norm']<=-10,1,0)
-
-#trigger + under mean vix (could use 75th percentile vix at 23 as well)
-vix['buy_ind6'] = np.where((vix['close_5_50_diff_neg6'])  & (vix['close']<20),1,0)
-vix['buy_ind4'] = np.where((vix['close_5_50_diff_neg4'])  & (vix['close']<20),1,0)
-vix['buy_ind_ema10'] = np.where((vix['close_5_50_diff_ema_norm_neg10'])  & (vix['close']<20),1,0)
-vix['buy_ind_ema20'] = np.where((vix['close_5_50_diff_ema_norm_neg20'])  & (vix['close']<20),1,0)
-
-# ##NULL THE PANDEMIC ROWS
-# mask = (vix['date'] >= '2020-02-01') & (vix['date'] <= '2020-12-31')
-# vix.loc[mask, :] = np.nan
-
-
+feature_eng(vix)
 
 #### Streamlit ###################################################################################
 st.title("Vix Opportunity Gauge")
 
 st.subheader(":rainbow[Is it VIX calls time?]")
+
+# --- USER INPUT TRIGGER ---
+if 'input_mode' not in st.session_state:
+    st.session_state.input_mode = False
+
+# Trigger input mode
+if st.button("Add today's current VIX price"):
+    st.session_state.input_mode = True
+
+# Show input field if in input mode
+if st.session_state.input_mode:
+    new_value = st.number_input("Enter new VIX value:", min_value=0.0, step=0.1)
+    if st.button("Submit New Value"):
+        # Get next date
+        new_date = vix['date'].max() + pd.Timedelta(days=1)
+
+        # Create new row and recalculate features (you can adapt these)
+        new_row = pd.DataFrame({
+            'date': [new_date],
+            'close': [new_value]
+        })
+
+        # Append and reprocess indicators
+        vix = pd.concat([vix, new_row], ignore_index=True)
+
+        #re-process features
+        feature_eng(vix)
+        
+        st.session_state.input_mode = False  # Reset
 
 #add guage of buying opportunity as 0-sum(buying indicators) for most recent day
 fig = go.Figure(go.Indicator(
