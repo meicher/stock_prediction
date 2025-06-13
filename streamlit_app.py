@@ -52,7 +52,9 @@ def feature_eng(vix=vix):
     vix['buy_ind4'] = np.where((vix['close_5_50_diff_neg4'])  & (vix['close']<20),1,0)
     vix['buy_ind_ema10'] = np.where((vix['close_5_50_diff_ema_norm_neg10'])  & (vix['close']<20),1,0)
     vix['buy_ind_ema20'] = np.where((vix['close_5_50_diff_ema_norm_neg20'])  & (vix['close']<20),1,0)
-    
+
+    vix['buy_ind_count'] = vix[['close_5_50_diff_neg6','close_5_50_diff_ema_norm_neg10',
+                         'close_5_50_diff_ema_norm_neg20','close_5_50_diff_ema_norm_neg30']].sum(axis=1)
     # ##NULL THE PANDEMIC ROWS
     # mask = (vix['date'] >= '2020-02-01') & (vix['date'] <= '2020-12-31')
     # vix.loc[mask, :] = np.nan
@@ -69,12 +71,12 @@ if 'input_mode' not in st.session_state:
     st.session_state.input_mode = False
 
 # Trigger input mode
-if st.button("Add today's current VIX price"):
+if st.button("Add today's intraday VIX price"):
     st.session_state.input_mode = True
 
 # Show input field if in input mode
 if st.session_state.input_mode:
-    new_value = st.number_input("Enter new VIX value:", min_value=0.0, step=0.1)
+    new_value = st.number_input("Enter current VIX value:", min_value=0.0)
     if st.button("Submit New Value"):
         # Get next date
         new_date = vix['date'].max() + pd.Timedelta(days=1)
@@ -97,7 +99,7 @@ if st.session_state.input_mode:
 fig = go.Figure(go.Indicator(
     mode = "gauge+number",
     value = vix[['close_5_50_diff_neg6','close_5_50_diff_ema_norm_neg10',
-                         'close_5_50_diff_ema_norm_neg20','close_5_50_diff_ema_norm_neg30']][vix['date']==yesterday_market_date].sum().sum(),
+                         'close_5_50_diff_ema_norm_neg20','close_5_50_diff_ema_norm_neg30']][vix['date']==vix['date'].max()].sum().sum(),
     title = {'text': "Daily VIX Opportunity"},
     gauge = {
         'axis': {'range': [0, 4]},
@@ -111,18 +113,28 @@ fig = go.Figure(go.Indicator(
 ))
 st.plotly_chart(fig)
 
-# Show recent values
-tail = vix[['date','close','close_5_50_diff','close_5_50_diff_neg6','close_5_50_diff_ema_norm',
-     'close_5_50_diff_ema_norm_neg10','close_5_50_diff_ema_norm_neg20','close_5_50_diff_ema_norm_neg30']].tail(5)
+def highlight_buy_count(val):
+    if val >= 3:
+        return 'background-color: green'
+    elif val == 2:
+        return 'background-color: yellow'
+    elif val == 1:
+        return 'background-color: lightpink'
+    else:
+        return ''
+tail = vix[['date','close','buy_ind_count','close_5_50_diff','close_5_50_diff_neg6','close_5_50_diff_ema_norm',
+     'close_5_50_diff_ema_norm_neg10','close_5_50_diff_ema_norm_neg20','close_5_50_diff_ema_norm_neg30']].tail(10)
 tail['date'] = pd.to_datetime(tail['date']).dt.strftime('%Y-%m-%d')
+styled_df = tail.style.applymap(highlight_buy_count, subset=['buy_ind_count'])
+
 st.subheader("Recent Values")
-st.dataframe(tail)
+st.write(styled_df)
 
 #Show indicator lines
 data = vix[['date', "close", "close_5_50_diff", "close_5_50_diff_ema_norm"]][vix['date']>'2023']
 tab1, tab2 = st.tabs(["Chart", "Dataframe"])
-tab1.line_chart(data,x='date', height=250)
-tab2.dataframe(data, height=250, use_container_width=True)
+tab1.line_chart(data,x='date', height=500)
+tab2.dataframe(data, height=500, use_container_width=True)
 
 
 #appendix: predictive power of each indicator / coverage
