@@ -28,11 +28,6 @@ from sklearn.metrics import mean_absolute_error, r2_score, mean_squared_error, m
 from sklearn.metrics import accuracy_score
 from sklearn.metrics import log_loss
 
-from yellowbrick.regressor import ResidualsPlot
-from yellowbrick.target import FeatureCorrelation
-from yellowbrick.classifier import ConfusionMatrix
-from yellowbrick.classifier import ROCAUC
-
 from sklearn.feature_selection import RFECV
 import shap
 from sklearn.model_selection import TimeSeriesSplit

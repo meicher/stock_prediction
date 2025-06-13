@@ -11,6 +11,5 @@ seaborn
 requests
 xgboost
 lightgbm
-yellowbrick
 scipy
 statsmodels
