@@ -61,7 +61,7 @@ vix['buy_ind_ema20'] = np.where((vix['close_5_50_diff_ema_norm_neg20'])  & (vix[
 #### Streamlit ###################################################################################
 st.title("-Vix Opportunity Gauge-")
 
-st.write(":rainbow[Is it VIX calls time?]")
+st.subheader(":rainbow[Is it VIX calls time?]")
 
 #add guage of buying opportunity as 0-sum(buying indicators) for most recent day
 fig = go.Figure(go.Indicator(
@@ -73,7 +73,7 @@ fig = go.Figure(go.Indicator(
         'axis': {'range': [0, 4]},
         'bar': {'color': "darkblue"},
         'steps': [
-            {'range': [0, 1], 'color': "lightred"},
+            {'range': [0, 1], 'color': "lightpink"},
             {'range': [1, 2], 'color': "lightyellow"},
             {'range': [2, 4], 'color': "lightgreen"}
         ]
