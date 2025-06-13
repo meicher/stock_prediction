@@ -1,5 +1,5 @@
 streamlit
-nasdaqdatalink
+nasdaq-data-link
 shap
 sklearn
 os
