@@ -45,6 +45,7 @@ from scipy.stats import pointbiserialr
 nyse = mcal.get_calendar('NYSE')
 schedule = nyse.valid_days(start_date='2024-06-01', end_date=datetime.today())
 yesterday_market_date = schedule[-2]
+yesterday_market_date = yesterday_market_date.strftime('%Y-%m-%d')
 lastdate = datetime.today().date() - pd.tseries.offsets.CustomBusinessDay(1, holidays = nyse.holidays().holidays)
 
 # Creating a funtion that will measure execution time

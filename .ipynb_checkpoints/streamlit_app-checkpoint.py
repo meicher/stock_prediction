@@ -59,7 +59,7 @@ vix['buy_ind_ema20'] = np.where((vix['close_5_50_diff_ema_norm_neg20'])  & (vix[
 
 
 #### Streamlit ###################################################################################
-st.title("-Vix Opportunity Gauge-")
+st.title("Vix Opportunity Gauge")
 
 st.subheader(":rainbow[Is it VIX calls time?]")
 
@@ -83,9 +83,9 @@ st.plotly_chart(fig)
 
 
 # Show recent values
-tail = vix[['close','close_5_50_diff','close_5_50_diff_neg6','close_5_50_diff_ema_norm',
+tail = vix[['date','close','close_5_50_diff','close_5_50_diff_neg6','close_5_50_diff_ema_norm',
      'close_5_50_diff_ema_norm_neg10','close_5_50_diff_ema_norm_neg20','close_5_50_diff_ema_norm_neg30']].tail(5)
-st.subheader("Data Table")
+st.subheader("Recent Values")
 st.dataframe(tail)
 
 #Show indicator lines
@@ -97,4 +97,4 @@ tab2.dataframe(data, height=250, use_container_width=True)
 
 #appendix: predictive power of each indicator / coverage
 #plotly box plots here
-st.write('appendix')
+st.subheader('appendix')
