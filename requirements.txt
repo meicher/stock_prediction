@@ -1,7 +1,7 @@
 streamlit
 nasdaq-data-link
 shap
-sklearn
+scikit-learn
 os
 quandl
 pandas
