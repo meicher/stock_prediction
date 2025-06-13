@@ -34,15 +34,17 @@ from sklearn.model_selection import TimeSeriesSplit
 from scipy.stats import pointbiserialr
 
 
-#store my API key
-with open('C:/Users/meich/.nasdaq/data_link_apikey.json') as f:
-    data=json.load(f)
-    key=data['api_key']
-    avkey = data['alpha_vantage_key']
-quandl.ApiConfig.api_key = key
+# #store my API key
+# with open('C:/Users/meich/.nasdaq/data_link_apikey.json') as f:
+#     data=json.load(f)
+#     key=data['api_key']
+#     avkey = data['alpha_vantage_key']
+# quandl.ApiConfig.api_key = key
 
 #Get latest market date
 nyse = mcal.get_calendar('NYSE')
+schedule = nyse.valid_days(start_date='2024-06-01', end_date=datetime.today())
+yesterday_market_date = schedule[-2]
 lastdate = datetime.today().date() - pd.tseries.offsets.CustomBusinessDay(1, holidays = nyse.holidays().holidays)
 
 # Creating a funtion that will measure execution time
