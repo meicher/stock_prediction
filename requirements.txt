@@ -2,16 +2,12 @@ streamlit
 nasdaq-data-link
 shap
 scikit-learn
-os
 quandl
 pandas
 numpy
-datetime
 plotly
 pandas_market_calendars
 seaborn
-pathlib
-time
 requests
 xgboost
 lightgbm
