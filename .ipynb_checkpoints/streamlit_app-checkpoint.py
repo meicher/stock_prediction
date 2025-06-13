@@ -82,7 +82,7 @@ fig = go.Figure(go.Indicator(
 st.plotly_chart(fig)
 
 # Show recent values
-vix['date'] = vix['date'].strftime('%Y-%m-%d')
+vix['date'] = pd.to_datetime(vix['date']).dt.strftime('%Y-%m-%d')
 tail = vix[['date','close','close_5_50_diff','close_5_50_diff_neg6','close_5_50_diff_ema_norm',
      'close_5_50_diff_ema_norm_neg10','close_5_50_diff_ema_norm_neg20','close_5_50_diff_ema_norm_neg30']].tail(5)
 st.subheader("Recent Values")
