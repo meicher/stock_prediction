@@ -31,7 +31,7 @@ from sklearn.metrics import log_loss
 from sklearn.feature_selection import RFECV
 import shap
 from sklearn.model_selection import TimeSeriesSplit
-from scipy.stats import pointbiserialr
+from scipy.stats import pointbiserialr,mannwhitneyu
 
 
 # #store my API key
@@ -565,30 +565,72 @@ def conditional_avg(df, target_col, condition_str, metric=np.mean):
     print(f'all rows {metric.__name__}: {overall_value*100:.2f}%')
 
 
-def future_max_gain_drop(df, col, windows):
+def add_max_gain_and_drawdown(df, col='close', windows=[5, 15]):
     
-    prices = df[col].to_numpy()
-    n = len(prices)
+    df = df.copy()
+    price_array = df[col].values
 
     for window in windows:
-        # Preallocate array with NaNs
-        max_gains = np.full(n, np.nan)
-        max_drops = np.full(n, np.nan)
+        max_gains = []
+        min_drawdowns = []
 
-        # Only iterate where a full window exists
-        for i in range(n - window):
-            future = prices[i+1:i+1+window]
-            current = prices[i]
+        for i in range(len(df)):
+            if i + window >= len(df):
+                max_gains.append(np.nan)
+                min_drawdowns.append(np.nan)
+                continue
 
-            max_gains[i] = (np.max(future) - current) / current
-            max_drops[i] = (np.min(future) - current) / current
+            future_prices = price_array[i+1:i+1+window]
+            current_price = price_array[i]
 
-        # Add the columns to the DataFrame
+            pct_changes = (future_prices - current_price) / current_price
+            max_gain_idx = np.argmax(pct_changes)
+            max_gain = pct_changes[max_gain_idx]
+
+            # Slice up to (and including) the max gain day
+            drawdown_window = future_prices[:max_gain_idx+1]
+            min_price_before_peak = drawdown_window.min()
+            drawdown = (min_price_before_peak - current_price) / current_price
+
+            max_gains.append(max_gain)
+            min_drawdowns.append(drawdown)
+
         df[f'max_{window}_gain'] = max_gains
-        df[f'max_{window}_drop'] = max_drops
-        df[f'max_{window}_diff'] = max_gains - max_drops
-
+        df[f'drawdown_before_max_{window}_gain'] = min_drawdowns
+        
     return df
+
+def summarize_signal_performance(df, signal_col, target_col, threshold=.1):
+    # Split into buy and no-buy groups
+    buy_group = df[df[signal_col] == 1][target_col].dropna()
+    no_buy_group = df[df[signal_col] == 0][target_col].dropna()
+    
+    buy_group_draw = df[df[signal_col] == 1][f'drawdown_before_{target_col}'].dropna()
+    no_buy_group_draw = df[df[signal_col] == 0][f'drawdown_before_{target_col}'].dropna()
+    
+    # Mann-Whitney U test
+    stat, p_val = mannwhitneyu(buy_group, no_buy_group, alternative='greater')
+
+    # Create summary dictionary
+    summary = {
+        'Signal': ['Buy', 'No Buy'],
+        'Median Gain (%)': [buy_group.median()*100, no_buy_group.median()*100],
+        'Mean Gain (%)': [buy_group.mean()*100, no_buy_group.mean()*100],
+        f'% > {threshold*100}%': [
+            (buy_group > threshold).mean() * 100,
+            (no_buy_group > threshold).mean() * 100
+        ],
+        'Median Drawdown (%)': [buy_group_draw.median()*100,no_buy_group_draw.median()*100],
+        'Gain/Drawdown Ratio': [buy_group.median()/-buy_group_draw.median(),
+                                         no_buy_group.median()/-no_buy_group_draw.median()],
+        'N': [len(buy_group), len(no_buy_group)],
+        'P-value (Buy > No Buy)': [p_val, None]
+    }
+
+    
+
+    return pd.DataFrame(summary)
+
 ########################################################################################################
 # PUT CALL PREDICTION / SCORING FUNCTIONS
 ########################################################################################################

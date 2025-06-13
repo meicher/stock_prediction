@@ -15,8 +15,9 @@ vix['date'] = pd.to_datetime(vix['date'])
 
 #### Feature Engineering####################################################
 #Alternative to close lag -- better metric for options windows.
-def feature_eng(vix=vix):
-    vix = future_max_gain_drop(vix,'close',windows=[5,10,15])
+def feature_eng(vix):
+    
+    vix = add_max_gain_and_drawdown(vix,'close',windows=[5,15])
     
     lag_predictor(vix,'close',time=[3,5,10,15,20,30,50],date='date')
     moving_avgs(vix,['close'],date='date',time=[5,10,15,20,25,50,100])
@@ -42,26 +43,25 @@ def feature_eng(vix=vix):
     vix['close_5_50_diff_neg6'] = np.where(vix['close_5_50_diff']<=-6,1,0)
     vix['close_5_50_diff_neg4'] = np.where(vix['close_5_50_diff']<=-4,1,0)
     vix['close_5_50_diff_neg8'] = np.where(vix['close_5_50_diff']<=-8,1,0)
-    vix['close_5_50_diff_ema_neg4'] = np.where(vix['close_5_50_diff_ema']<=-4,1,0)
     vix['close_5_50_diff_ema_norm_neg30'] = np.where(vix['close_5_50_diff_ema_norm']<=-30,1,0)
     vix['close_5_50_diff_ema_norm_neg20'] = np.where(vix['close_5_50_diff_ema_norm']<=-20,1,0)
     vix['close_5_50_diff_ema_norm_neg10'] = np.where(vix['close_5_50_diff_ema_norm']<=-10,1,0)
     
     #trigger + under mean vix (could use 75th percentile vix at 23 as well)
-    vix['buy_ind6'] = np.where((vix['close_5_50_diff_neg6'])  & (vix['close']<20),1,0)
-    vix['buy_ind4'] = np.where((vix['close_5_50_diff_neg4'])  & (vix['close']<20),1,0)
-    vix['buy_ind_ema10'] = np.where((vix['close_5_50_diff_ema_norm_neg10'])  & (vix['close']<20),1,0)
-    vix['buy_ind_ema20'] = np.where((vix['close_5_50_diff_ema_norm_neg20'])  & (vix['close']<20),1,0)
+    vix['buy_ind_sma6'] = np.where((vix['close_5_50_diff_neg6'])  & (vix['close']<19),1,0)
+    vix['buy_ind_sma4'] = np.where((vix['close_5_50_diff_neg4'])  & (vix['close']<19),1,0)
+    vix['buy_ind_ema10'] = np.where((vix['close_5_50_diff_ema_norm_neg10'])  & (vix['close']<19),1,0)
+    vix['buy_ind_ema20'] = np.where((vix['close_5_50_diff_ema_norm_neg20'])  & (vix['close']<19),1,0)
+    vix['buy_ind_ema30'] = np.where((vix['close_5_50_diff_ema_norm_neg30'])  & (vix['close']<19),1,0)
+    
+    vix['buy_ind_count'] = vix[['close_5_50_diff_neg8','buy_ind_sma4','buy_ind_sma6','buy_ind_ema10','buy_ind_ema20','buy_ind_ema30']].sum(axis=1)
 
-    vix['buy_ind_count'] = vix[['close_5_50_diff_neg6','close_5_50_diff_ema_norm_neg10',
-                         'close_5_50_diff_ema_norm_neg20','close_5_50_diff_ema_norm_neg30']].sum(axis=1)
-    # ##NULL THE PANDEMIC ROWS
-    # mask = (vix['date'] >= '2020-02-01') & (vix['date'] <= '2020-12-31')
-    # vix.loc[mask, :] = np.nan
+    return vix
 
-feature_eng(vix)
+vix = feature_eng(vix)
 
 #### Streamlit ###################################################################################
+
 st.title("Vix Opportunity Gauge")
 
 st.subheader(":rainbow[Is it VIX calls time?]")
@@ -91,39 +91,38 @@ if st.session_state.input_mode:
         vix = pd.concat([vix, new_row], ignore_index=True)
 
         #re-process features
-        feature_eng(vix)
+        vix = feature_eng(vix)
         
         st.session_state.input_mode = False  # Reset
 
 #add guage of buying opportunity as 0-sum(buying indicators) for most recent day
 fig = go.Figure(go.Indicator(
     mode = "gauge+number",
-    value = vix[['close_5_50_diff_neg6','close_5_50_diff_ema_norm_neg10',
-                         'close_5_50_diff_ema_norm_neg20','close_5_50_diff_ema_norm_neg30']][vix['date']==vix['date'].max()].sum().sum(),
+    value = vix[vix['date'] == vix['date'].max()][['close_5_50_diff_neg8', 'buy_ind_sma4', 'buy_ind_sma6',
+        'buy_ind_ema10', 'buy_ind_ema20', 'buy_ind_ema30']].sum().sum(),
     title = {'text': "Daily VIX Opportunity"},
     gauge = {
-        'axis': {'range': [0, 4]},
+        'axis': {'range': [0, 6]},
         'bar': {'color': "darkblue"},
         'steps': [
             {'range': [0, 1], 'color': "lightpink"},
-            {'range': [1, 2], 'color': "lightyellow"},
-            {'range': [2, 4], 'color': "lightgreen"}
+            {'range': [1, 3], 'color': "lightyellow"},
+            {'range': [3, 6], 'color': "lightgreen"}
         ]
     }
 ))
 st.plotly_chart(fig)
 
 def highlight_buy_count(val):
-    if val >= 3:
+    if val >= 4:
         return 'background-color: green'
-    elif val == 2:
+    elif val in (2,3):
         return 'background-color: yellow'
     elif val == 1:
         return 'background-color: lightpink'
     else:
         return ''
-tail = vix[['date','close','buy_ind_count','close_5_50_diff','close_5_50_diff_neg6','close_5_50_diff_ema_norm',
-     'close_5_50_diff_ema_norm_neg10','close_5_50_diff_ema_norm_neg20','close_5_50_diff_ema_norm_neg30']].tail(10)
+tail = vix[['date','close','buy_ind_count','close_5_50_diff','close_5_50_diff_ema_norm']].tail(10)
 tail['date'] = pd.to_datetime(tail['date']).dt.strftime('%Y-%m-%d')
 styled_df = tail.style.applymap(highlight_buy_count, subset=['buy_ind_count'])
 
@@ -142,11 +141,8 @@ tab2.dataframe(data, height=500, use_container_width=True)
 st.divider()
 st.subheader('Appendix')
 
-st.write('close_5_50_diff_neg6 vs max 15d gain')
-st.plotly_chart(px.box(vix,x='max_15_gain',color='close_5_50_diff_neg6'))
+st.dataframe(summarize_signal_performance(vix, 'close_5_50_diff_neg8', 'max_15_gain', threshold=.1))
 
-st.write('close_5_50_diff_ema_norm_neg10 vs max 15d gain')
-st.plotly_chart(px.box(vix,x='max_15_gain',color='close_5_50_diff_ema_norm_neg10'))
 
-st.write('close_5_50_diff_ema_norm_neg30 vs max 15d gain')
-st.plotly_chart(px.box(vix,x='max_15_gain',color='close_5_50_diff_ema_norm_neg30'))
+st.write('close_5_50_diff_neg8 vs max 15d gain')
+st.plotly_chart(px.box(vix,x='max_15_gain',color='close_5_50_diff_neg8'))
