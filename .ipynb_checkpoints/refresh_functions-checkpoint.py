@@ -614,6 +614,7 @@ def summarize_signal_performance(df, signal_col, target_col, threshold=.1):
     # Create summary dictionary
     summary = {
         'Signal': ['Buy', 'No Buy'],
+        'N': [len(buy_group), len(no_buy_group)],
         'Median Gain (%)': [buy_group.median()*100, no_buy_group.median()*100],
         'Mean Gain (%)': [buy_group.mean()*100, no_buy_group.mean()*100],
         f'% > {threshold*100}%': [
@@ -623,7 +624,6 @@ def summarize_signal_performance(df, signal_col, target_col, threshold=.1):
         'Median Drawdown (%)': [buy_group_draw.median()*100,no_buy_group_draw.median()*100],
         'Gain/Drawdown Ratio': [buy_group.median()/-buy_group_draw.median(),
                                          no_buy_group.median()/-no_buy_group_draw.median()],
-        'N': [len(buy_group), len(no_buy_group)],
         'P-value (Buy > No Buy)': [p_val, None]
     }
 
